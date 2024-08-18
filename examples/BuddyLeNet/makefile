@@ -25,23 +25,6 @@ buddy-lenet-lower:
 		-eliminate-empty-tensors \
 		-convert-tensor-to-linalg \
 		-linalg-bufferize \
-		-convert-linalg-to-affine-loops \
-		-lower-affine \
-		-func-bufferize \
-		-arith-bufferize \
-		-tensor-bufferize \
-		-buffer-deallocation \
-		-finalizing-bufferize \
-		-convert-vector-to-scf \
-		-expand-strided-metadata \
-		-convert-vector-to-llvm \
-		-convert-arith-to-llvm \
-		-finalize-memref-to-llvm \
-		-convert-scf-to-cf \
-		-llvm-request-c-wrappers \
-		-convert-arith-to-llvm \
-		-convert-func-to-llvm \
-		-reconcile-unrealized-casts \
 		-o ./log.mlir
 
 buddy-lenet-translate:
@@ -93,6 +76,18 @@ buddy-lenet-run:
 		-convert-scf-to-cf \
 		-llvm-request-c-wrappers \
 		-convert-arith-to-llvm \
+		-convert-func-to-llvm \
+		-reconcile-unrealized-casts | \
+	${MLIR_CPU_RUNNER} ${OPT_FLAG} -e main -entry-point-result=void \
+		-shared-libs=${MLIR_RUNNER_UTILS} -shared-libs=${MLIR_C_RUNNER_UTILS}
+
+vector-pooling-nhwc-max-run:
+	@${MLIR_OPT} ./vector-pooling-nhwc-max.mlir \
+	    -convert-vector-to-scf \
+		-lower-affine \
+		-convert-scf-to-cf \
+		-convert-vector-to-llvm \
+		-finalize-memref-to-llvm \
 		-convert-func-to-llvm \
 		-reconcile-unrealized-casts | \
 	${MLIR_CPU_RUNNER} ${OPT_FLAG} -e main -entry-point-result=void \
