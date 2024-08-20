@@ -418,6 +418,11 @@ linalg-matmul-vectorization-lower:
 		-matmul-vectorization \
 		-o log.mlir
 
+linalg-pooling-nhwc-max-lower:
+	@${BUDDY_OPT} linalg-pooling-nhwc-max.mlir ${MLIR_OPT_OPTIONS} \
+		-pooling-nhwc-max-vectorization \
+		-o log.mlir
+
 linalg-pooling-nhwc-max-run:
 	@${MLIR_OPT} linalg-pooling-nhwc-max.mlir ${MLIR_OPT_OPTIONS} \
 		-convert-linalg-to-loops -lower-affine -convert-scf-to-cf \

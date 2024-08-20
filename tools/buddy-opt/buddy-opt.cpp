@@ -40,19 +40,20 @@
 #include "DAP/DAPOps.h"
 #include "DIP/DIPDialect.h"
 #include "DIP/DIPOps.h"
-#include "RVV/RVVDialect.h"
-#include "VectorExp/VectorExpDialect.h"
-#include "VectorExp/VectorExpOps.h"
 #include "Gemmini/GemminiDialect.h"
 #include "Gemmini/GemminiOps.h"
+#include "RVV/RVVDialect.h"
 #include "Sche/ScheDialect.h"
 #include "Sche/ScheOps.h"
+#include "VectorExp/VectorExpDialect.h"
+#include "VectorExp/VectorExpOps.h"
 
 namespace mlir {
 namespace buddy {
 void registerConvVectorizationPass();
 void registerPointwiseConvToGemmPass();
 void registerPoolingVectorizationPass();
+void registerPoolingNhwcMaxVectorizationPass();
 void registerLowerBudPass();
 void registerLowerDIPPass();
 void registerLowerDAPPass();
@@ -82,6 +83,8 @@ int main(int argc, char **argv) {
   mlir::buddy::registerConvVectorizationPass();
   // Register Vectorization of Pooling.
   mlir::buddy::registerPoolingVectorizationPass();
+  // Register Vectorization of Pooling Nhwc Max.
+  mlir::buddy::registerPoolingNhwcMaxVectorizationPass();
   mlir::buddy::registerLowerBudPass();
   mlir::buddy::registerLowerDIPPass();
   mlir::buddy::registerLowerDAPPass();
