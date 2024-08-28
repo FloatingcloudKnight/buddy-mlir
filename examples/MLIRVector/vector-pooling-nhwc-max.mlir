@@ -4,7 +4,6 @@
 // RUN:   -convert-scf-to-cf \
 // RUN:   -convert-vector-to-llvm \
 // RUN:   -finalize-memref-to-llvm \
-// RUN:   -llvm-request-c-wrappers \
 // RUN:   -convert-func-to-llvm \
 // RUN:   -reconcile-unrealized-casts \
 // RUN: | mlir-cpu-runner -e main -entry-point-result=void \
