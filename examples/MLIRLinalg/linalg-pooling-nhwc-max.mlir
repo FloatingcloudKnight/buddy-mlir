@@ -12,11 +12,7 @@
 // RUN:     -shared-libs=%mlir_runner_utils_dir/libmlir_c_runner_utils%shlibext \
 // RUN: | FileCheck %s
 
-#map0 = affine_map<(d0, d1) -> (d0 + d1 - 1)>
-
 module{
-  memref.global "private" @kernel : memref<3x3xf32> = dense<0.0>
-
   func.func private @rtclock() -> f64
   func.func private @printMemrefF32(memref<*xf32>)
 
@@ -27,34 +23,23 @@ module{
     return
   }
 
-  func.func @alloc_f32(%arg0: index, %arg1: index, %arg2: index, %arg3: index, %arg4: f32) -> memref<?x?x?x?xf32> {
-    %c0 = arith.constant 0 : index
-    %c1 = arith.constant 1 : index
-    %0 = memref.alloc(%arg0, %arg1, %arg2, %arg3) : memref<?x?x?x?xf32>
-    scf.for %arg5 = %c0 to %arg0 step %c1 {
-      scf.for %arg6 = %c0 to %arg1 step %c1 {
-        scf.for %arg7 = %c0 to %arg2 step %c1 {
-          scf.for %arg8 = %c0 to %arg3 step %c1 {
-            memref.store %arg4, %0[%arg5, %arg6, %arg7, %arg8] : memref<?x?x?x?xf32>
-          }
-        }
-      }
-    }
-    return %0 : memref<?x?x?x?xf32>
-  }
-
   func.func @main(){
-    %N = arith.constant 1 : index
-    %current_v1 = arith.constant 3 : index
-    %current_v2 = arith.constant 126 : index
-    %current_v0 = affine.apply #map0(%current_v2, %current_v1)
-    %c0 = arith.constant 0.000000e+00 : f32
-    %c1 = arith.constant 1.000000e+00 : f32
-    %kernel = memref.get_global @kernel : memref<3x3xf32>
+    // Set up dims.
+    %c1 = arith.constant 1 : index
+    %cInput = arith.constant 128 : index
+    %cKernel = arith.constant 3 : index
+    %cOutput = arith.constant 126 : index
 
-    %a = call @alloc_f32(%N, %current_v0, %current_v0, %N, %c1) : (index, index, index, index, f32) -> memref<?x?x?x?xf32>
-    %b = memref.cast %kernel : memref<3x3xf32> to memref<?x?xf32>
-    %c = call @alloc_f32(%N, %current_v2, %current_v2, %N, %c0) : (index, index, index, index, f32) -> memref<?x?x?x?xf32>
+    // Set Init Value.
+    %cf1_32 = arith.constant 1.0 : f32
+
+    %a = memref.alloc(%c1, %cInput, %cInput, %c1) : memref<?x?x?x?xf32>
+    %b = memref.alloc(%cKernel, %cKernel) : memref<?x?xf32>
+    %c = memref.alloc(%c1, %cOutput, %cOutput, %c1) : memref<?x?x?x?xf32>
+
+    linalg.fill ins(%cf1_32 : f32) outs(%a : memref<?x?x?x?xf32>)
+    linalg.fill ins(%cf1_32 : f32) outs(%b : memref<?x?xf32>)
+    linalg.fill ins(%cf1_32 : f32) outs(%c : memref<?x?x?x?xf32>)
 
     %t0 = call @rtclock() : () -> f64
     call @pooling_nhwc_max(%a, %b, %c) : (memref<?x?x?x?xf32>, memref<?x?xf32>, memref<?x?x?x?xf32>) -> ()
@@ -66,14 +51,14 @@ module{
     // CHECK: [
     // CHECK: [
     // CHECK: [1],
-    %print_c = memref.cast %c : memref<?x?x?x?xf32> to memref<*xf32>
-    call @printMemrefF32(%print_c) : (memref<*xf32>) -> ()
-
+    %print_C = memref.cast %c : memref<?x?x?x?xf32> to memref<*xf32>
+    call @printMemrefF32(%print_C) : (memref<*xf32>) -> ()
     %time = arith.subf %t1, %t0 : f64
     vector.print %time : f64
 
-    memref.dealloc %a : memref<?x?x?x?xf32>
     memref.dealloc %c : memref<?x?x?x?xf32>
+    memref.dealloc %b : memref<?x?xf32>
+    memref.dealloc %a : memref<?x?x?x?xf32>
 
     return 
   }

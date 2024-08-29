@@ -312,8 +312,8 @@ public:
     registry.insert<linalg::LinalgDialect, scf::SCFDialect,
                     affine::AffineDialect, VectorDialect, func::FuncDialect>();
   }
-  Option<int64_t> strip{*this, "strip-mining",
-                        llvm::cl::desc("Strip mining size."),
+  Option<int64_t> strip{*this, "vector-size",
+                        llvm::cl::desc("Specify vector type size."),
                         llvm::cl::init(32)};
 };
 } // end anonymous namespace.
