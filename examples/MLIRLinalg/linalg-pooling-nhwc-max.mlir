@@ -17,7 +17,7 @@ module{
   func.func private @printMemrefF32(memref<*xf32>)
 
   func.func @pooling_nhwc_max(%a : memref<?x?x?x?xf32>, %b : memref<?x?xf32>, %c : memref<?x?x?x?xf32>) {
-    linalg.pooling_nhwc_max  
+    linalg.pooling_nhwc_max {dilations = dense<1> : vector<2xi64>, strides = dense<2> : vector<2xi64>} 
       ins(%a, %b : memref<?x?x?x?xf32>, memref<?x?xf32>) 
       outs(%c : memref<?x?x?x?xf32>)
     return
@@ -26,16 +26,17 @@ module{
   func.func @main(){
     // Set up dims.
     %c1 = arith.constant 1 : index
-    %cInput = arith.constant 128 : index
-    %cKernel = arith.constant 3 : index
-    %cOutput = arith.constant 126 : index
+    %cInput = arith.constant 24 : index
+    %cKernel = arith.constant 2 : index
+    %cOutput = arith.constant 12 : index
+    %c6 = arith.constant 6 : index
 
     // Set Init Value.
     %cf1_32 = arith.constant 1.0 : f32
 
-    %a = memref.alloc(%c1, %cInput, %cInput, %c1) : memref<?x?x?x?xf32>
+    %a = memref.alloc(%c1, %cInput, %cInput, %c6) : memref<?x?x?x?xf32>
     %b = memref.alloc(%cKernel, %cKernel) : memref<?x?xf32>
-    %c = memref.alloc(%c1, %cOutput, %cOutput, %c1) : memref<?x?x?x?xf32>
+    %c = memref.alloc(%c1, %cOutput, %cOutput, %c6) : memref<?x?x?x?xf32>
 
     linalg.fill ins(%cf1_32 : f32) outs(%a : memref<?x?x?x?xf32>)
     linalg.fill ins(%cf1_32 : f32) outs(%b : memref<?x?xf32>)

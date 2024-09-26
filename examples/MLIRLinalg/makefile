@@ -440,7 +440,7 @@ linalg-pooling-nhwc-max-vectorization-lower:
 
 linalg-pooling-nhwc-max-vectorization-run:
 	@${BUDDY_OPT} linalg-pooling-nhwc-max.mlir \
-		-pooling-nhwc-max-vectorization="vector-size=64" \
+		-pooling-nhwc-max-vectorization="vector-size=32" \
 		-convert-linalg-to-loops \
 		-lower-affine \
 		-convert-scf-to-cf \
