@@ -114,14 +114,14 @@ public:
     AffineMap stripMap = AffineMap::get(1, 0, {d0.ceilDiv(strip)}, ctx);
     SmallVector<Value, 8> lowerBounds(3, c0);
     SmallVector<Value, 8> uperBounds{batch, height, width};
-    SmallVector<int64_t, 8> steps(3, /*Value=*/2);
+    SmallVector<int64_t, 8> steps(3, /*Value=*/1);
     affine::buildAffineLoopNest(
         rewriter, loc, lowerBounds, uperBounds, steps,
         [&](OpBuilder &builder, Location loc, ValueRange ivs) {
           // Create strip mining loop.
           builder.create<affine::AffineForOp>(
               loc, ValueRange{c0}, builder.getDimIdentityMap(),
-              ValueRange{channels}, stripMap, /*Step=*/2, std::nullopt,
+              ValueRange{channels}, stripMap, /*Step=*/1, std::nullopt,
               [&](OpBuilder &nestedBuilder, Location nestedLoc, Value iv,
                   ValueRange itrArgs) {
                 // Vectorize the kernel.
@@ -131,7 +131,7 @@ public:
                 bindDims(ctx, input0, input1, input2, input3, input4, input5);
                 AffineMap inputVectorMap = AffineMap::get(
                     /*dimCount=*/6, /*symbolCount=*/0,
-                    {input0, input1 + input3, input4 + input2, input5 * strip},
+                    {input0, input1 * 2 + input3, input4 * 2 + input2, input5 * strip},
                     ctx);
 
                 // Calculate the tail.
@@ -161,7 +161,7 @@ public:
                       auto tmp0 = nestedBuilder.create<affine::AffineForOp>(
                           loc, ValueRange{c0}, builder.getDimIdentityMap(),
                           ValueRange{kernelHeight}, builder.getDimIdentityMap(),
-                          /*Step=*/2, ValueRange{outputVector},
+                          /*Step=*/1, ValueRange{outputVector},
                           [&](OpBuilder &builder, Location loc, Value iv0,
                               ValueRange itrArgs0) {
                             auto tmp1 = nestedBuilder.create<
@@ -169,7 +169,7 @@ public:
                                 loc, ValueRange{c0},
                                 builder.getDimIdentityMap(),
                                 ValueRange{kernelWidth},
-                                builder.getDimIdentityMap(), /*Step=*/2,
+                                builder.getDimIdentityMap(), /*Step=*/1,
                                 ValueRange{itrArgs0[0]},
                                 [&](OpBuilder &builder, Location loc, Value iv1,
                                     ValueRange itrArgs1) {
@@ -222,9 +222,10 @@ public:
                           /*Step=*/1, ValueRange{maskedOutputVec},
                           [&](OpBuilder &builder, Location loc, Value iv0,
                               ValueRange itrArgs0) {
+                            Value tmp_ivs1 = nestedBuilder.create<arith::MulIOp>(loc, ivs[1], c2);
                             Value inputHeight =
                                       nestedBuilder.create<arith::AddIOp>(
-                                          loc, ivs[1], iv0);
+                                          loc, tmp_ivs1, iv0);
                             auto tmp1 = nestedBuilder.create<
                                 affine::AffineForOp>(
                                 loc, ValueRange{c0},
@@ -236,9 +237,10 @@ public:
                                     ValueRange itrArgs1) {
                                   // Calculate the index of the input and
                                   // output.
+                                  Value tmp_ivs2 = nestedBuilder.create<arith::MulIOp>(loc, ivs[2], c2);
                                   Value inputWidth =
                                       nestedBuilder.create<arith::AddIOp>(
-                                          loc, iv1, ivs[2]);
+                                          loc, iv1, tmp_ivs2);
                                   // Masked load input and output.
                                   Value maskedInputVec =
                                       nestedBuilder.create<MaskedLoadOp>(

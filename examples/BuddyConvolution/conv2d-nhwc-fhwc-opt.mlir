@@ -129,7 +129,7 @@ module {
     // CHECK: [
     // CHECK: [
     // CHECK: [
-    // CHECK: [150{{(, 150)*}}],
+    // CHECK: [750{{(, 750)*}}],
     %print_v2 = memref.cast %v2 : memref<?x?x?x?xf32> to memref<*xf32>
     call @printMemrefF32(%print_v2) : (memref<*xf32>) -> ()
 

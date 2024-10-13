@@ -27,7 +27,7 @@ module {
     %c1 = arith.constant 1 : index
     %c2 = arith.constant 2 : index
     %c3 = arith.constant 3 : index
-    %vec1 = vector.splat %f0 : vector<6xf32>
+    %vec1 = vector.splat %f0 : vector<16xf32>
     %n = memref.dim %arg0, %c0 : memref<?x?x?x?xf32>
     %h_i = memref.dim %arg0, %c1 : memref<?x?x?x?xf32>
     %w_i = memref.dim %arg0, %c2 : memref<?x?x?x?xf32>
@@ -42,25 +42,25 @@ module {
     affine.for %idx_n = %c0 to %n {                         
       affine.for %idx_h_o = %c0 to %h_o {               
         affine.for %idx_w_o = %c0 to %w_o {          
-          %tmp8 = affine.for %idx_h_k = %c0 to %h_k iter_args(%tmp9 = %vec1) -> (vector<6xf32>) {             
-            %tmp6 = affine.for %idx_w_k = %c0 to %w_k iter_args(%tmp7 = %vec1) -> (vector<6xf32>) {
+          %tmp8 = affine.for %idx_h_k = %c0 to %h_k iter_args(%tmp9 = %vec1) -> (vector<16xf32>) {             
+            %tmp6 = affine.for %idx_w_k = %c0 to %w_k iter_args(%tmp7 = %vec1) -> (vector<16xf32>) {
               %in_iter_h = affine.apply #map1 (%idx_h_k, %idx_h_o)
               %in_iter_w = affine.apply #map1 (%idx_w_k, %idx_w_o)
-              %input_vec = affine.vector_load %arg0[%idx_n, %in_iter_h, %in_iter_w, %c0] : memref<?x?x?x?xf32>, vector<5xf32>
-              %tmp0 = affine.for %idx_f = %c0 to %f iter_args(%tmp1 = %vec1) -> (vector<6xf32>) {
-                %kernel_vec = affine.vector_load %arg1[%idx_f, %idx_h_k, %idx_w_k, %c0] : memref<?x?x?x?xf32>, vector<5xf32>
-                %tmp_vec0 = arith.mulf %kernel_vec, %input_vec : vector<5xf32>
-                %tmp_val = vector.reduction <add>, %tmp_vec0 : vector<5xf32> into f32 
-                %tmp4 = vector.insert %tmp_val, %tmp1[%idx_f] : f32 into vector<6xf32> 
-                affine.yield %tmp4 : vector<6xf32>
+              %input_vec = affine.vector_load %arg0[%idx_n, %in_iter_h, %in_iter_w, %c0] : memref<?x?x?x?xf32>, vector<6xf32>
+              %tmp0 = affine.for %idx_f = %c0 to %f iter_args(%tmp1 = %vec1) -> (vector<16xf32>) {
+                %kernel_vec = affine.vector_load %arg1[%idx_f, %idx_h_k, %idx_w_k, %c0] : memref<?x?x?x?xf32>, vector<6xf32>
+                %tmp_vec0 = arith.mulf %kernel_vec, %input_vec : vector<6xf32>
+                %tmp_val = vector.reduction <add>, %tmp_vec0 : vector<6xf32> into f32 
+                %tmp4 = vector.insert %tmp_val, %tmp1[%idx_f] : f32 into vector<16xf32> 
+                affine.yield %tmp4 : vector<16xf32>
               }
-              %tmp5 = arith.addf %tmp7, %tmp0 : vector<6xf32>
-              affine.yield %tmp5 : vector<6xf32>
+              %tmp5 = arith.addf %tmp7, %tmp0 : vector<16xf32>
+              affine.yield %tmp5 : vector<16xf32>
             }
-            %tmp5 = arith.addf %tmp9, %tmp6 : vector<6xf32>
-            affine.yield %tmp5 : vector<6xf32>
+            %tmp5 = arith.addf %tmp9, %tmp6 : vector<16xf32>
+            affine.yield %tmp5 : vector<16xf32>
           }
-          affine.vector_store %tmp8, %arg2[%idx_n, %idx_h_o, %idx_w_o, %c0] : memref<?x?x?x?xf32>, vector<6xf32>
+          affine.vector_store %tmp8, %arg2[%idx_n, %idx_h_o, %idx_w_o, %c0] : memref<?x?x?x?xf32>, vector<16xf32>
         }
       }
     }
@@ -103,9 +103,9 @@ module {
     // %v1 = call @alloc_f32(%c16, %c5, %c5, %c6, %f3) : (index, index, index, index, f32) -> memref<?x?x?x?xf32>
     // %v2 = call @alloc_f32(%c1, %c8, %c8, %c16, %f0) : (index, index, index, index, f32) -> memref<?x?x?x?xf32>
     
-    %v0 = call @alloc_f32(%c1, %c28, %c28, %c6, %f2) : (index, index, index, index, f32) -> memref<?x?x?x?xf32>
-    %v1 = call @alloc_f32(%c6, %c5, %c5, %c6, %f3) : (index, index, index, index, f32) -> memref<?x?x?x?xf32>
-    %v2 = call @alloc_f32(%c1, %c24, %c24, %c6, %f0) : (index, index, index, index, f32) -> memref<?x?x?x?xf32>
+    %v0 = call @alloc_f32(%c1, %c12, %c12, %c6, %f2) : (index, index, index, index, f32) -> memref<?x?x?x?xf32>
+    %v1 = call @alloc_f32(%c16, %c5, %c5, %c6, %f3) : (index, index, index, index, f32) -> memref<?x?x?x?xf32>
+    %v2 = call @alloc_f32(%c1, %c8, %c8, %c16, %f0) : (index, index, index, index, f32) -> memref<?x?x?x?xf32>
 
     // %v0 = memref.alloc(%c1, %c28, %c28, %c5) : memref<?x?x?x?xf32>
     // %v1 = memref.alloc(%c6, %c5, %c5, %c5) : memref<?x?x?x?xf32>
@@ -125,7 +125,7 @@ module {
     // CHECK: [
     // CHECK: [
     // CHECK: [
-    // CHECK: [150{{(, 150)*}}],
+    // CHECK: [750{{(, 750)*}}],
     %print_v2 = memref.cast %v2 : memref<?x?x?x?xf32> to memref<*xf32>
     call @printMemrefF32(%print_v2) : (memref<*xf32>) -> ()
 

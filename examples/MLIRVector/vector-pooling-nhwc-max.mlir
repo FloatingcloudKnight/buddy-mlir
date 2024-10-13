@@ -100,7 +100,7 @@ module {
     // CHECK: [
     // CHECK: [
     // CHECK: [
-    // CHECK: [1],
+    // CHECK: [1{{(, 1)*}}],
     %print_C = memref.cast %c : memref<?x?x?x?xf32> to memref<*xf32>
     call @printMemrefF32(%print_C) : (memref<*xf32>) -> ()
     %time = arith.subf %t1, %t0 : f64

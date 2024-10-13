@@ -59,9 +59,9 @@ module {
     // %v1 = call @alloc_f32(%c16, %c5, %c5, %c6, %f3) : (index, index, index, index, f32) -> memref<?x?x?x?xf32>
     // %v2 = call @alloc_f32(%c1, %c8, %c8, %c16, %f0) : (index, index, index, index, f32) -> memref<?x?x?x?xf32>
     
-    %v0 = call @alloc_f32(%c1, %c28, %c28, %c5, %f2) : (index, index, index, index, f32) -> memref<?x?x?x?xf32>
-    %v1 = call @alloc_f32(%c6, %c5, %c5, %c5, %f3) : (index, index, index, index, f32) -> memref<?x?x?x?xf32>
-    %v2 = call @alloc_f32(%c1, %c24, %c24, %c6, %f0) : (index, index, index, index, f32) -> memref<?x?x?x?xf32>
+    %v0 = call @alloc_f32(%c1, %c12, %c12, %c6, %f2) : (index, index, index, index, f32) -> memref<?x?x?x?xf32>
+    %v1 = call @alloc_f32(%c16, %c5, %c5, %c6, %f3) : (index, index, index, index, f32) -> memref<?x?x?x?xf32>
+    %v2 = call @alloc_f32(%c1, %c8, %c8, %c16, %f0) : (index, index, index, index, f32) -> memref<?x?x?x?xf32>
 
     %t_start = call @rtclock() : () -> f64
     call @conv_2d_nhwc_fhwc(%v0, %v1, %v2) : (memref<?x?x?x?xf32>, memref<?x?x?x?xf32>, memref<?x?x?x?xf32>) -> ()
@@ -73,7 +73,7 @@ module {
     // CHECK: [
     // CHECK: [
     // CHECK: [
-    // CHECK: [150{{(, 150)*}}],
+    // CHECK: [750{{(, 750)*}}],
     %print_v2 = memref.cast %v2 : memref<?x?x?x?xf32> to memref<*xf32>
     call @printMemrefF32(%print_v2) : (memref<*xf32>) -> ()
 
