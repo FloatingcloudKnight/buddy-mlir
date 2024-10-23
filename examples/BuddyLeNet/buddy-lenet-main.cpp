@@ -38,7 +38,7 @@ extern "C" void _mlir_ciface_forward(MemRef<float, 2> *output,
 void printLogLabel() { std::cout << "\033[34;1m[Log] \033[0m"; }
 
 /// Load parameters into data container.
-double loadParameters(const std::string &paramFilePath,
+void loadParameters(const std::string &paramFilePath,
                     MemRef<float, 1> &params) {
   const auto loadStart = std::chrono::high_resolution_clock::now();
   // Open the parameter file in binary mode.
@@ -63,11 +63,9 @@ double loadParameters(const std::string &paramFilePath,
   const std::chrono::duration<double, std::milli> loadTime =
       loadEnd - loadStart;
   printLogLabel();
-  double tmptime = (double)(loadTime.count()) / 1000;
-  std::cout << "Params load time: " << tmptime
+  std::cout << "Params load time: " << (double)(loadTime.count()) / 1000
             << "s\n"
             << std::endl;
-  return tmptime;
 }
 
 /// Softmax function to convert logits to probabilities.
@@ -105,20 +103,15 @@ int main() {
   std::string imgPath = lenetDir + "/images/" + ImgName;
   dip::Image<float, 4> input(imgPath, dip::DIP_GRAYSCALE, true /* norm */);
   MemRef<float, 2> output(sizesOutput);
-  MemRef<float, 2> output0(sizesOutput);
+
   // Load model parameters from the specified file.
   std::string paramsDir = lenetDir + "/arg0.data";
   MemRef<float, 1> paramsContainer({ParamsSize});
-  double tmptime = loadParameters(paramsDir, paramsContainer);
-
-  const auto runStart = std::chrono::high_resolution_clock::now();
+  loadParameters(paramsDir, paramsContainer);
 
   // Call the forward function of the model.
   _mlir_ciface_forward(&output, &paramsContainer, &input);
 
-  const auto runEnd = std::chrono::high_resolution_clock::now();
-  const std::chrono::duration<double, std::milli> runTime =
-      runEnd - runStart;
   // Apply softmax to the output logits to get probabilities.
   auto out = output.getData();
   softmax(out, 10);
@@ -135,8 +128,6 @@ int main() {
 
   std::cout << "Classification: " << maxIdx << std::endl;
   std::cout << "Probability: " << maxVal << std::endl;
-  std::cout << "Model run time: " << (double)(runTime.count()) / 1000 + tmptime << std::endl;
-
 
   return 0;
 }

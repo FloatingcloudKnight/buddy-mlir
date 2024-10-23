@@ -27,8 +27,6 @@ add_custom_command(
             -linalg-bufferize
             -batchmatmul-optimize
             -convert-linalg-to-affine-loops
-            -conv2d-nhwc-fhwc-vectorization
-            -pooling-nhwc-max-vectorization
             -lower-affine
             -func-bufferize-dynamic-offset
             -arith-bufferize
@@ -53,6 +51,7 @@ add_custom_command(
   VERBATIM)
 
 add_library(LENET STATIC subgraph0.o forward.o)
+
 SET_TARGET_PROPERTIES(LENET PROPERTIES LINKER_LANGUAGE C)
 
 add_executable(buddy-lenet-run buddy-lenet-main.cpp)
