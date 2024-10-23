@@ -221,3 +221,18 @@ rvv-stripmining-aot:
 		-o a.out
 	@LD_LIBRARY_PATH=${CROSS_MLIR_LIB} \
 	${QEMU} -L ${RISCV_GNU_TOOLCHAIN_SYSROOT} -cpu max a.out
+
+conv2d-asm:
+	@${BUDDY_OPT} ./rvv-conv2d.mlir \
+		-lower-affine \
+		-convert-scf-to-cf \
+		-lower-rvv \
+		-convert-vector-to-llvm \
+		-finalize-memref-to-llvm \
+		-llvm-request-c-wrappers \
+		-convert-func-to-llvm \
+		-reconcile-unrealized-casts | \
+	${BUDDY_TRANSLATE} -buddy-to-llvmir | \
+	${LLC} -O3 -mtriple riscv64 -target-abi lp64d \
+		-mattr=+m,+d,+v -riscv-v-vector-bits-min=256 \
+		--filetype=asm -o log.s
