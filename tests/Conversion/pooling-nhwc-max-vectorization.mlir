@@ -1,5 +1,4 @@
 // RUN: buddy-opt %s \
-// RUN:   -pooling-nhwc-max-vectorization="vector-size=64" \
 // RUN:   -convert-linalg-to-loops \
 // RUN:   -lower-affine \
 // RUN:   -convert-scf-to-cf \

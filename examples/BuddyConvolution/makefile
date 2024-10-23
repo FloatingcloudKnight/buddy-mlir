@@ -126,8 +126,22 @@ conv2d-nhwc-fhwc-opt-aot:
 		-o a.out
 	@LD_LIBRARY_PATH=${MLIR_LIB} ./a.out
 
-conv2d-nhwc-fhwc-test-aot:
-	@${BUDDY_OPT} ./conv2d-nhwc-fhwc-test.mlir \
+conv2d-nhwc-fhwc-vec-run:
+	@${BUDDY_OPT} ./conv2d-nhwc-fhwc-vec.mlir \
+		-convert-vector-to-scf \
+		-lower-affine \
+		-arith-bufferize \
+		-convert-scf-to-cf \
+		-convert-vector-to-llvm \
+		-convert-arith-to-llvm \
+		-finalize-memref-to-llvm \
+		-convert-func-to-llvm \
+		-reconcile-unrealized-casts | \
+	${MLIR_CPU_RUNNER} ${OPT_FLAG} -e main -entry-point-result=void \
+		-shared-libs=${MLIR_RUNNER_UTILS} -shared-libs=${MLIR_C_RUNNER_UTILS}
+
+conv2d-nhwc-fhwc-vec-aot:
+	@${BUDDY_OPT} ./conv2d-nhwc-fhwc-vec.mlir \
 		-convert-vector-to-scf \
 		-lower-affine \
 		-arith-bufferize \
@@ -142,8 +156,3 @@ conv2d-nhwc-fhwc-test-aot:
 		-L${MLIR_LIB} -lmlir_runner_utils -lmlir_c_runner_utils \
 		-o a.out
 	@LD_LIBRARY_PATH=${MLIR_LIB} ./a.out
-
-conv2d-nhwc-fhwc-vectorization:
-	@${BUDDY_OPT} ./conv2d-nhwc-fhwc.mlir \
-		-conv2d-nhwc-fhwc-vectorization \
-		-o log.mlir

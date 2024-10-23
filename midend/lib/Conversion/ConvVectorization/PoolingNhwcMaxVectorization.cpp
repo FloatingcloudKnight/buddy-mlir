@@ -131,7 +131,8 @@ public:
                 bindDims(ctx, input0, input1, input2, input3, input4, input5);
                 AffineMap inputVectorMap = AffineMap::get(
                     /*dimCount=*/6, /*symbolCount=*/0,
-                    {input0, input1 * 2 + input3, input4 * 2 + input2, input5 * strip},
+                    {input0, input1 * 2 + input3, input4 * 2 + input2,
+                     input5 * strip},
                     ctx);
 
                 // Calculate the tail.
@@ -222,10 +223,12 @@ public:
                           /*Step=*/1, ValueRange{maskedOutputVec},
                           [&](OpBuilder &builder, Location loc, Value iv0,
                               ValueRange itrArgs0) {
-                            Value tmp_ivs1 = nestedBuilder.create<arith::MulIOp>(loc, ivs[1], c2);
+                            Value tmp_ivs1 =
+                                nestedBuilder.create<arith::MulIOp>(loc, ivs[1],
+                                                                    c2);
                             Value inputHeight =
-                                      nestedBuilder.create<arith::AddIOp>(
-                                          loc, tmp_ivs1, iv0);
+                                nestedBuilder.create<arith::AddIOp>(
+                                    loc, tmp_ivs1, iv0);
                             auto tmp1 = nestedBuilder.create<
                                 affine::AffineForOp>(
                                 loc, ValueRange{c0},
@@ -237,7 +240,9 @@ public:
                                     ValueRange itrArgs1) {
                                   // Calculate the index of the input and
                                   // output.
-                                  Value tmp_ivs2 = nestedBuilder.create<arith::MulIOp>(loc, ivs[2], c2);
+                                  Value tmp_ivs2 =
+                                      nestedBuilder.create<arith::MulIOp>(
+                                          loc, ivs[2], c2);
                                   Value inputWidth =
                                       nestedBuilder.create<arith::AddIOp>(
                                           loc, iv1, tmp_ivs2);

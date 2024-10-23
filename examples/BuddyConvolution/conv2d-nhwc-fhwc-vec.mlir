@@ -98,22 +98,10 @@ module {
     %c16 = arith.constant 16 : index
     %c24 = arith.constant 24 : index
     %c28 = arith.constant 28 : index
-
-    // %v0 = call @alloc_f32(%c1, %c12, %c12, %c6, %f2) : (index, index, index, index, f32) -> memref<?x?x?x?xf32>
-    // %v1 = call @alloc_f32(%c16, %c5, %c5, %c6, %f3) : (index, index, index, index, f32) -> memref<?x?x?x?xf32>
-    // %v2 = call @alloc_f32(%c1, %c8, %c8, %c16, %f0) : (index, index, index, index, f32) -> memref<?x?x?x?xf32>
     
     %v0 = call @alloc_f32(%c1, %c12, %c12, %c6, %f2) : (index, index, index, index, f32) -> memref<?x?x?x?xf32>
     %v1 = call @alloc_f32(%c16, %c5, %c5, %c6, %f3) : (index, index, index, index, f32) -> memref<?x?x?x?xf32>
     %v2 = call @alloc_f32(%c1, %c8, %c8, %c16, %f0) : (index, index, index, index, f32) -> memref<?x?x?x?xf32>
-
-    // %v0 = memref.alloc(%c1, %c28, %c28, %c5) : memref<?x?x?x?xf32>
-    // %v1 = memref.alloc(%c6, %c5, %c5, %c5) : memref<?x?x?x?xf32>
-    // %v2 = memref.alloc(%c1, %c24, %c24, %c6) : memref<?x?x?x?xf32>
-
-    // linalg.fill ins(%f2 : f32) outs(%v0 : memref<?x?x?x?xf32>)
-    // linalg.fill ins(%f3 : f32) outs(%v1 : memref<?x?x?x?xf32>)
-    // linalg.fill ins(%f0 : f32) outs(%v2 : memref<?x?x?x?xf32>)
 
     %t_start = call @rtclock() : () -> f64
     call @conv_2d_nhwc_fhwc(%v0, %v1, %v2) : (memref<?x?x?x?xf32>, memref<?x?x?x?xf32>, memref<?x?x?x?xf32>) -> ()
@@ -125,7 +113,7 @@ module {
     // CHECK: [
     // CHECK: [
     // CHECK: [
-    // CHECK: [750{{(, 750)*}}],
+    // CHECK: [900{{(, 900)*}}],
     %print_v2 = memref.cast %v2 : memref<?x?x?x?xf32> to memref<*xf32>
     call @printMemrefF32(%print_v2) : (memref<*xf32>) -> ()
 
