@@ -187,3 +187,8 @@ conv2d-nhwc-fhwc-adapt-aot:
 		-L${MLIR_LIB} -lmlir_runner_utils -lmlir_c_runner_utils \
 		-o a.out
 	@LD_LIBRARY_PATH=${MLIR_LIB} ./a.out
+
+conv2d-nhwc-fhwc-lower:
+	@${BUDDY_OPT} ./conv2d-nhwc-fhwc.mlir \
+		-convert-linalg-to-loops \
+		-o log.mlir
