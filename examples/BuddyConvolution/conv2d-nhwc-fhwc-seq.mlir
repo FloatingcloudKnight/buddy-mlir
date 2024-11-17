@@ -113,10 +113,10 @@ module {
     %c2 = arith.constant 2 : index
     %c3 = arith.constant 3 : index
     %c5 = arith.constant 5 : index
-    %c6 = arith.constant 128 : index
+    %c6 = arith.constant 6 : index
     %c8 = arith.constant 8 : index
     %c12 = arith.constant 12 : index
-    %c16 = arith.constant 128 : index
+    %c16 = arith.constant 16 : index
     %c24 = arith.constant 24 : index
     %c28 = arith.constant 28 : index
     
