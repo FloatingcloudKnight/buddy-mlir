@@ -46,7 +46,8 @@ module {
       affine.for %idx_h_o = %c0 to %h_o { 
         affine.for %idx_w_o = %c0 to %w_o { 
           affine.for %idx_f = %c0 to %f  { 
-            %iter_idx, %iter_value = scf.for %idx_c = %c0 to %upbound step %vl_step iter_args(%iter_init = %c0, %iter_value0 = %f0) -> (index, f32) {
+            %iter_idx, %iter_value = scf.for %idx_c = %c0 to %upbound step %vl_step 
+                iter_args(%iter_init = %c0, %iter_value0 = %f0) -> (index, f32) {
               %tmp8 = affine.for %idx_h_k = %c0 to %h_k iter_args(%tmp9 = %iter_value0) -> (f32) {             
                 %tmp6 = affine.for %idx_w_k = %c0 to %w_k iter_args(%tmp7 = %tmp9) -> (f32) {
                   %in_iter_h = arith.addi %idx_h_k, %idx_h_o : index
@@ -65,22 +66,26 @@ module {
             }
             // Compute the tail size and Process the remaining elements 
             // using masked vector operations.
-            %tail_size = arith.subi %c, %iter_idx : index
-            %mask = vector.create_mask %tail_size : vector<32xi1>
-            %tmp8 = affine.for %idx_h_k = %c0 to %h_k iter_args(%tmp9 = %iter_value) -> (f32) { 
-              %tmp6 = affine.for %idx_w_k = %c0 to %w_k iter_args(%tmp7 = %tmp9) -> (f32) { 
-                %in_iter_h = arith.addi %idx_h_k, %idx_h_o : index
-                %in_iter_w = arith.addi %idx_w_k, %idx_w_o : index
-                %input_vec = vector.maskedload %arg0[%idx_n, %in_iter_h, %in_iter_w, %iter_idx], %mask, %vec0 : memref<?x?x?x?xf32>, vector<32xi1>, vector<32xf32> into vector<32xf32>
-                %kernel_vec = vector.maskedload %arg1[%idx_f, %idx_h_k, %idx_w_k, %iter_idx], %mask, %vec0 : memref<?x?x?x?xf32>, vector<32xi1>, vector<32xf32> into vector<32xf32>
-                %tmp_vec0 = arith.mulf %kernel_vec, %input_vec : vector<32xf32>
-                %tmp_val = vector.reduction <add>, %tmp_vec0 : vector<32xf32> into f32 
-                %tmp4 = arith.addf %tmp7, %tmp_val  : f32
-                affine.yield %tmp4 : f32
+            %result = scf.for %idx_c = %iter_idx to %c step %vl_step 
+                iter_args(%tmp10 = %iter_value) -> (f32){
+              %tail_size = arith.subi %c, %iter_idx : index
+              %mask = vector.create_mask %tail_size : vector<32xi1>
+              %tmp8 = affine.for %idx_h_k = %c0 to %h_k iter_args(%tmp9 = %tmp10) -> (f32) { 
+                %tmp6 = affine.for %idx_w_k = %c0 to %w_k iter_args(%tmp7 = %tmp9) -> (f32) { 
+                  %in_iter_h = arith.addi %idx_h_k, %idx_h_o : index
+                  %in_iter_w = arith.addi %idx_w_k, %idx_w_o : index
+                  %input_vec = vector.maskedload %arg0[%idx_n, %in_iter_h, %in_iter_w, %iter_idx], %mask, %vec0 : memref<?x?x?x?xf32>, vector<32xi1>, vector<32xf32> into vector<32xf32>
+                  %kernel_vec = vector.maskedload %arg1[%idx_f, %idx_h_k, %idx_w_k, %iter_idx], %mask, %vec0 : memref<?x?x?x?xf32>, vector<32xi1>, vector<32xf32> into vector<32xf32>
+                  %tmp_vec0 = arith.mulf %kernel_vec, %input_vec : vector<32xf32>
+                  %tmp_val = vector.reduction <add>, %tmp_vec0 : vector<32xf32> into f32 
+                  %tmp4 = arith.addf %tmp7, %tmp_val  : f32
+                  affine.yield %tmp4 : f32
+                }
+                affine.yield %tmp6 : f32
               }
-              affine.yield %tmp6 : f32
+              scf.yield %tmp8 : f32
             }
-            memref.store %tmp8, %arg2[%idx_n, %idx_h_o, %idx_w_o, %idx_f] : memref<?x?x?x?xf32>
+            memref.store %result, %arg2[%idx_n, %idx_h_o, %idx_w_o, %idx_f] : memref<?x?x?x?xf32>
           }
         }
       }

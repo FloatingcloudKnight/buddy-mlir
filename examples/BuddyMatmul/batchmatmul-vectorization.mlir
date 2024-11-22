@@ -61,18 +61,20 @@ module {
         }
         // Compute the tail size and Process the remaining elements 
         // using masked vector operations.
-        %tail_size = arith.subi %dim_3, %iter_idx : index
-        %mask = vector.create_mask %tail_size : vector<32xi1>
-        %1 = vector.maskedload %arg2[%arg3, %arg4, %iter_idx], %mask, %0 : memref<?x?x?xf32>, vector<32xi1>, vector<32xf32> into vector<32xf32>
-        %iter_vec = scf.for %arg6 = %c0 to %dim_2 step %c1
-            iter_args(%iter_vec0 = %1) -> (vector<32xf32>) {             // K 
-          %5 = vector.maskedload %arg1[%arg3, %arg6, %iter_idx], %mask, %0 : memref<?x?x?xf32>, vector<32xi1>, vector<32xf32> into vector<32xf32>
-          %6 = memref.load %arg0[%arg3, %arg4, %arg6] : memref<?x?x?xf32>
-          %7 = vector.broadcast %6 : f32 to vector<32xf32>
-          %9 = vector.fma %7, %5, %iter_vec0 : vector<32xf32>
-          scf.yield %9 : vector<32xf32>
+        scf.for %arg5 = %iter_idx to %dim_3 step %vl_step {
+          %tail_size = arith.subi %dim_3, %iter_idx : index
+          %mask = vector.create_mask %tail_size : vector<32xi1>
+          %1 = vector.maskedload %arg2[%arg3, %arg4, %iter_idx], %mask, %0 : memref<?x?x?xf32>, vector<32xi1>, vector<32xf32> into vector<32xf32>
+          %iter_vec = scf.for %arg6 = %c0 to %dim_2 step %c1
+              iter_args(%iter_vec0 = %1) -> (vector<32xf32>) {             // K 
+            %5 = vector.maskedload %arg1[%arg3, %arg6, %iter_idx], %mask, %0 : memref<?x?x?xf32>, vector<32xi1>, vector<32xf32> into vector<32xf32>
+            %6 = memref.load %arg0[%arg3, %arg4, %arg6] : memref<?x?x?xf32>
+            %7 = vector.broadcast %6 : f32 to vector<32xf32>
+            %9 = vector.fma %7, %5, %iter_vec0 : vector<32xf32>
+            scf.yield %9 : vector<32xf32>
+          }
+          vector.maskedstore %arg2[%arg3, %arg4, %iter_idx], %mask, %iter_vec : memref<?x?x?xf32>, vector<32xi1>, vector<32xf32>
         }
-        vector.maskedstore %arg2[%arg3, %arg4, %iter_idx], %mask, %iter_vec : memref<?x?x?xf32>, vector<32xi1>, vector<32xf32>
       }
     }
     return
