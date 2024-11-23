@@ -65,7 +65,7 @@ conv2d-run:
 		-shared-libs=${MLIR_RUNNER_UTILS} -shared-libs=${MLIR_C_RUNNER_UTILS}
 
 conv2d-nhwc-fhwc-run:
-	@${MLIR_OPT} ./conv2d-nhwc-fhwc.mlir \
+	@${BUDDY_OPT} ./conv2d-nhwc-fhwc.mlir \
 		-convert-linalg-to-loops \
 		-lower-affine \
 		-arith-bufferize \
@@ -192,3 +192,17 @@ conv2d-nhwc-fhwc-lower:
 	@${BUDDY_OPT} ./conv2d-nhwc-fhwc.mlir \
 	  -conv2d-nhwc-fhwc-vectorization \
 		-o log.mlir
+
+test-run:
+	@${BUDDY_OPT} ./log.mlir \
+		-convert-linalg-to-loops \
+		-lower-affine \
+		-arith-bufferize \
+		-convert-scf-to-cf \
+		-convert-vector-to-llvm \
+		-convert-arith-to-llvm \
+		-finalize-memref-to-llvm \
+		-convert-func-to-llvm \
+		-reconcile-unrealized-casts | \
+	${MLIR_CPU_RUNNER} ${OPT_FLAG} -e main -entry-point-result=void \
+		-shared-libs=${MLIR_RUNNER_UTILS} -shared-libs=${MLIR_C_RUNNER_UTILS}
