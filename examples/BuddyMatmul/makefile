@@ -92,8 +92,3 @@ batchmatmul-vectorization-run:
 		-reconcile-unrealized-casts | \
 	${MLIR_CPU_RUNNER} ${OPT_FLAG} -e main -entry-point-result=void \
 		-shared-libs=${MLIR_RUNNER_UTILS} -shared-libs=${MLIR_C_RUNNER_UTILS}
-
-batchmatmul-lower:
-	@${BUDDY_OPT} ./linalg-batchmatmul-f32.mlir \
-		-convert-linalg-to-loops \
-		-o log.mlir
