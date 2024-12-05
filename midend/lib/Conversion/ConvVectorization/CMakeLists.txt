@@ -5,6 +5,8 @@ add_mlir_library(CBConvVectorization
   PoolingNhwcMaxAdaptVectorization.cpp
   PoolingNhwcMaxVectorization.cpp
   Conv2dNhwcFhwcAdaptVectorization.cpp
+  Conv2dNhwcFhwcVectorization2.cpp
+  Conv2dNhwcFhwcVectorization4.cpp
   Conv2dNhwcFhwcVectorization.cpp
   
   LINK_LIBS PUBLIC

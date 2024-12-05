@@ -277,7 +277,7 @@ public:
   }
   Option<int64_t> strip{*this, "vector-size",
                         llvm::cl::desc("Specify vector type size."),
-                        llvm::cl::init(32)};
+                        llvm::cl::init(16)};
 };
 } // end anonymous namespace.
 

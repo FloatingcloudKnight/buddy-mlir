@@ -53,9 +53,9 @@ using namespace vector;
 
 namespace {
 
-class BatchMatMulOptimizePattern : public ConversionPattern {
+class BatchMatMulOptimizePattern1 : public ConversionPattern {
 public:
-  explicit BatchMatMulOptimizePattern(MLIRContext *context,
+  explicit BatchMatMulOptimizePattern1(MLIRContext *context,
                                       int64_t vecSizeParam)
       : ConversionPattern(linalg::BatchMatmulOp::getOperationName(), 1,
                           context) {
@@ -219,21 +219,21 @@ private:
 } // end anonymous namespace
 
 //===----------------------------------------------------------------------===//
-// BatchMatMulOptimizePass
+// BatchMatMulOptimizePass1
 //===----------------------------------------------------------------------===//
 
 /// This is a partial lowering linalg pooling operations to mixture of
 /// Affine + Vector operations.
 namespace {
-class BatchMatMulOptimizePass
-    : public PassWrapper<BatchMatMulOptimizePass, OperationPass<ModuleOp>> {
+class BatchMatMulOptimizePass1
+    : public PassWrapper<BatchMatMulOptimizePass1, OperationPass<ModuleOp>> {
 public:
-  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(BatchMatMulOptimizePass)
-  StringRef getArgument() const final { return "batchmatmul-optimize"; }
-  StringRef getDescription() const final { return "BatchMatMul Optimization."; }
-  BatchMatMulOptimizePass() = default;
-  BatchMatMulOptimizePass(const BatchMatMulOptimizePass &) {}
-  explicit BatchMatMulOptimizePass(int64_t vecSizeParam) {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(BatchMatMulOptimizePass1)
+  StringRef getArgument() const final { return "batchmatmul-optimize1"; }
+  StringRef getDescription() const final { return "BatchMatMul Optimization1."; }
+  BatchMatMulOptimizePass1() = default;
+  BatchMatMulOptimizePass1(const BatchMatMulOptimizePass1 &) {}
+  explicit BatchMatMulOptimizePass1(int64_t vecSizeParam) {
     vecSize = vecSizeParam;
   }
 
@@ -246,11 +246,11 @@ public:
 
   Option<int64_t> vecSize{*this, "vector-size",
                           llvm::cl::desc("Affine Vector size."),
-                          llvm::cl::init(64)};
+                          llvm::cl::init(128)};
 };
 } // end anonymous namespace.
 
-void BatchMatMulOptimizePass::runOnOperation() {
+void BatchMatMulOptimizePass1::runOnOperation() {
   MLIRContext *context = &getContext();
   ModuleOp module = getOperation();
 
@@ -262,7 +262,7 @@ void BatchMatMulOptimizePass::runOnOperation() {
   target.addLegalOp<linalg::FillOp>();
 
   RewritePatternSet patterns(context);
-  patterns.add<BatchMatMulOptimizePattern>(context, vecSize);
+  patterns.add<BatchMatMulOptimizePattern1>(context, vecSize);
 
   if (failed(applyPartialConversion(module, target, std::move(patterns))))
     signalPassFailure();
@@ -270,8 +270,8 @@ void BatchMatMulOptimizePass::runOnOperation() {
 
 namespace mlir {
 namespace buddy {
-void registerBatchMatMulOptimizePass() {
-  PassRegistration<BatchMatMulOptimizePass>();
+void registerBatchMatMulOptimizePass1() {
+  PassRegistration<BatchMatMulOptimizePass1>();
 }
 } // namespace buddy
 } // namespace mlir

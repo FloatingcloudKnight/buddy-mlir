@@ -58,9 +58,12 @@ void registerPoolingVectorizationPass();
 void registerLowerBudPass();
 void registerLowerDIPPass();
 void registerBatchMatMulOptimizePass();
+void registerBatchMatMulOptimizePass1();
 void registerPoolingNhwcMaxAdaptVectorizationPass();
 void registerConv2dNhwcFhwcAdaptVectorizationPass();
 void registerPoolingNhwcMaxVectorizationPass();
+void registerConv2dNhwcFhwcVectorizationPass2();
+void registerConv2dNhwcFhwcVectorizationPass4();
 void registerConv2dNhwcFhwcVectorizationPass();
 void registerBatchMatMulTileOptimizePass();
 void registerBatchMatMuSCFOptimize();
@@ -105,6 +108,8 @@ int main(int argc, char **argv) {
   mlir::buddy::registerPoolingNhwcMaxVectorizationPass();
   // Register Vectorization of Conv2D Nhwc Fhwc.
   mlir::buddy::registerConv2dNhwcFhwcVectorizationPass();
+  mlir::buddy::registerConv2dNhwcFhwcVectorizationPass2();
+  mlir::buddy::registerConv2dNhwcFhwcVectorizationPass4();
   mlir::buddy::registerLowerBudPass();
   mlir::buddy::registerLowerDIPPass();
   mlir::buddy::registerLowerDAPPass();
@@ -119,6 +124,7 @@ int main(int argc, char **argv) {
   // Register Several Optimize Pass.
   mlir::buddy::registerMatMulOptimizePass();
   mlir::buddy::registerBatchMatMulOptimizePass();
+  mlir::buddy::registerBatchMatMulOptimizePass1();
   mlir::buddy::registerBatchMatMulTileOptimizePass();
   mlir::buddy::registerBatchMatMuSCFOptimize();
   mlir::buddy::registerMatMulVectorizationPass();
