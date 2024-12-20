@@ -1,11 +1,3 @@
-import os
-import torch
-import torch._dynamo as dynamo
-from transformers import LlamaForCausalLM, LlamaTokenizer
-from torch._inductor.decomposition import decompositions as inductor_decomp
-import numpy
-
-from buddy.compiler.frontend import DynamoCompiler
 # ===- import-llama2.py --------------------------------------------------------
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,6 +17,15 @@ from buddy.compiler.frontend import DynamoCompiler
 # This is the test of llama2 model.
 #
 # ===---------------------------------------------------------------------------
+
+import os
+import torch
+import torch._dynamo as dynamo
+from transformers import LlamaForCausalLM, LlamaTokenizer
+from torch._inductor.decomposition import decompositions as inductor_decomp
+import numpy
+
+from buddy.compiler.frontend import DynamoCompiler
 from buddy.compiler.ops import tosa
 from buddy.compiler.graph import GraphDriver
 from buddy.compiler.graph.transform import simply_fuse
@@ -37,7 +38,7 @@ if model_path is None:
     )
 
 # Initialize the tokenizer and model from the specified model path.
-tokenizer = LlamaTokenizer.from_pretrained(model_path)
+tokenizer = LlamaTokenizer.from_pretrained(model_path, legacy=True)
 model = LlamaForCausalLM.from_pretrained(model_path, torchscript=True)
 model.config.use_cache = False
 

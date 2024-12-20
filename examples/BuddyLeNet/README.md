@@ -24,7 +24,9 @@ $ cmake -G Ninja .. \
     -DLLVM_ENABLE_ASSERTIONS=ON \
     -DCMAKE_BUILD_TYPE=RELEASE \
     -DBUDDY_MLIR_ENABLE_PYTHON_PACKAGES=ON \
-    -DPython3_EXECUTABLE=$(which python3)
+    -DPython3_EXECUTABLE=$(which python3) \
+    -DBUDDY_MLIR_ENABLE_DIP_LIB=ON \
+    -DBUDDY_ENABLE_PNG=ON
 $ ninja
 $ ninja check-buddy
 ```
@@ -49,9 +51,16 @@ $ export LENET_EXAMPLE_PATH=${BUDDY_MLIR_BUILD_DIR}/../examples/BuddyLeNet/
 
 ```bash
 $ cmake -G Ninja .. -DBUDDY_LENET_EXAMPLES=ON
+
+// CPU
 $ ninja buddy-lenet-run
 $ cd bin
 $ ./buddy-lenet-run
+
+// GPU
+$ ninja buddy-lenet-run-gpu
+$ cd bin
+$ ./buddy-lenet-run-gpu
 ```
 
 ## Debug the Lowering Pass Pipeline with Fake Parameters.
