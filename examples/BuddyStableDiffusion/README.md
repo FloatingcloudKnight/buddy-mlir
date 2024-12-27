@@ -1,5 +1,4 @@
-# Buddy Compiler ResNet Example
-
+# Buddy Compiler Stable Diffusion Example
 1. Enter Python virtual environment
 
 We recommend you to use anaconda3 to create python virtual environment. You should install python packages as buddy-mlir/requirements.
@@ -31,16 +30,15 @@ $ ninja check-clang check-mlir omp
 
 ```
 $ cd buddy-mlir
-$ mkdir build && cd build
+$ mkdir build
+$ cd build
 $ cmake -G Ninja .. \
     -DMLIR_DIR=$PWD/../llvm/build/lib/cmake/mlir \
     -DLLVM_DIR=$PWD/../llvm/build/lib/cmake/llvm \
     -DLLVM_ENABLE_ASSERTIONS=ON \
     -DCMAKE_BUILD_TYPE=RELEASE \
     -DBUDDY_MLIR_ENABLE_PYTHON_PACKAGES=ON \
-    -DPython3_EXECUTABLE=$(which python3) \
-    -DBUDDY_MLIR_ENABLE_DIP_LIB=ON \
-    -DBUDDY_ENABLE_PNG=ON
+    -DPython3_EXECUTABLE=$(which python3)
 $ ninja
 $ ninja check-buddy
 ```
@@ -58,17 +56,16 @@ $ export LLVM_MLIR_BUILD_DIR=$PWD/../llvm/build
 $ export PYTHONPATH=${LLVM_MLIR_BUILD_DIR}/tools/mlir/python_packages/mlir_core:${BUDDY_MLIR_BUILD_DIR}/python_packages:${PYTHONPATH}
 ```
 
-4.Set the `RESNET_EXAMPLE_PATH` environment variable.
+6. Build and run Stable Diffusion example
 
-```bash
-$ export RESNET_EXAMPLE_PATH=${BUDDY_MLIR_BUILD_DIR}/../examples/BuddyResNet18/
 ```
-
-4. Build and run the ResNet example
-
-```bash
-$ cmake -G Ninja .. -DBUDDY_RESNET_EXAMPLES=ON
-$ ninja buddy-resnet-run
+$ cmake -G Ninja .. -DBUDDY_STABLE_DIFFUSION_EXAMPLES=ON
+$ ninja buddy-stable-diffusion-run
 $ cd bin
-$ ./buddy-resnet-run
+$ ./buddy-stable-diffusion-run
 ```
+This build will spend a few minutes. We recommend you to use better cpu such as server-level cpu to run buddy-stable-diffusion-run.
+
+If you wish to utilize `mimalloc` as a memory allocator, you need to set `BUDDY_MLIR_USE_MIMALLOC` and `MIMALLOC_BUILD_DIR`.
+For more details, please see [here](../../thirdparty/README.md#the-mimalloc-allocator).
+
