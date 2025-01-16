@@ -63,7 +63,59 @@ public:
     Value passthru = rewriter.create<LLVM::UndefOp>(loc, resultType[0]);
     operandsVector.insert(operandsVector.begin(), passthru);
 
-    const LLVMTypeConverter* typeConverter = this->getTypeConverter();
+    const LLVMTypeConverter *typeConverter = this->getTypeConverter();
+    if (numResults != 0) {
+      packedType = typeConverter->packFunctionResults(op->getResultTypes());
+      if (!packedType)
+        return failure();
+    }
+
+    // Create the intrinsic operation.
+    OperationState state(loc, TargetOp::getOperationName());
+    state.addTypes(packedType);
+    state.addOperands(operandsVector);
+    Operation *newOp = rewriter.create(state);
+    return rewriter.replaceOp(op, newOp->getResult(0)), success();
+  }
+};
+
+template <typename SourceOp, typename TargetOp>
+class ConvertPassthruOperandRoundingOpToLLVMPattern
+    : public ConvertOpToLLVMPattern<SourceOp> {
+public:
+  using ConvertOpToLLVMPattern<SourceOp>::ConvertOpToLLVMPattern;
+
+  /// This pattern creates an `undef` operation, inserts the `undef`
+  /// operation to the beginning of the operand list, and creates the intrinsic
+  /// operation.
+  LogicalResult
+  matchAndRewrite(SourceOp op, typename SourceOp::Adaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+    auto loc = op->getLoc();
+    unsigned numResults = op->getNumResults();
+    auto resultType = op->getResultTypes();
+    Type packedType;
+
+    Value src1 = op.getOperand(0);
+    Value src2 = op.getOperand(1);
+    Value frm = op.getOperand(2);
+    Value vl = op.getOperand(3);
+    Value frmCast = rewriter
+                        .create<UnrealizedConversionCastOp>(
+                            op.getLoc(),
+                            rewriter.getIntegerType(RVVTargetIndexBitwidth), frm)
+                        .getResult(0);
+    Value vlCast = rewriter
+                       .create<UnrealizedConversionCastOp>(
+                           op.getLoc(),
+                           rewriter.getIntegerType(RVVTargetIndexBitwidth), vl)
+                       .getResult(0);
+    SmallVector<Value, 6> operandsVector({src1, src2, frmCast, vlCast});
+
+    Value passthru = rewriter.create<LLVM::UndefOp>(loc, resultType[0]);
+    operandsVector.insert(operandsVector.begin(), passthru);
+
+    const LLVMTypeConverter *typeConverter = this->getTypeConverter();
     if (numResults != 0) {
       packedType = typeConverter->packFunctionResults(op->getResultTypes());
       if (!packedType)
@@ -211,6 +263,14 @@ using RVVAddOpLowering =
     ConvertPassthruOperandOpToLLVMPattern<RVVAddOp, RVVIntrAddOp>;
 using RVVMulOpLowering =
     ConvertPassthruOperandOpToLLVMPattern<RVVMulOp, RVVIntrMulOp>;
+using RVVFMaxOpLowering =
+    ConvertPassthruOperandOpToLLVMPattern<RVVFMaxOp, RVVIntrFMaxOp>;
+using RVVFMinOpLowering =
+    ConvertPassthruOperandOpToLLVMPattern<RVVFMinOp, RVVIntrFMinOp>;
+using RVVFAddOpLowering =
+    ConvertPassthruOperandRoundingOpToLLVMPattern<RVVFAddOp, RVVIntrFAddOp>;
+using RVVFMulOpLowering =
+    ConvertPassthruOperandRoundingOpToLLVMPattern<RVVFMulOp, RVVIntrFMulOp>;
 
 struct RsqrtOpLowering : public ConvertOpToLLVMPattern<RsqrtOp> {
   using ConvertOpToLLVMPattern<RsqrtOp>::ConvertOpToLLVMPattern;
@@ -234,6 +294,86 @@ struct RsqrtOpLowering : public ConvertOpToLLVMPattern<RsqrtOp> {
   }
 };
 
+template <typename SourceOp, typename TargetOp>
+struct UnaryAAUnMaskedRoundingModeOpLowering : public ConvertOpToLLVMPattern<SourceOp> {
+  using ConvertOpToLLVMPattern<SourceOp>::ConvertOpToLLVMPattern;
+
+  LogicalResult
+  matchAndRewrite(SourceOp op, typename SourceOp::Adaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+
+    auto resultType = op.getResult().getType();
+    Value passthru = rewriter.create<LLVM::UndefOp>(op.getLoc(), resultType);
+    Value src = op.getOperand(0);
+    Value frm = op.getOperand(1);
+    Value vl = op.getOperand(2);
+    Value frmCast = rewriter
+                       .create<UnrealizedConversionCastOp>(
+                           op.getLoc(),
+                           rewriter.getIntegerType(RVVTargetIndexBitwidth), frm)
+                       .getResult(0);
+    Value vlCast = rewriter
+                       .create<UnrealizedConversionCastOp>(
+                           op.getLoc(),
+                           rewriter.getIntegerType(RVVTargetIndexBitwidth), vl)
+                       .getResult(0);
+    rewriter.replaceOpWithNewOp<TargetOp>(op, resultType, passthru, src,
+                                               frmCast, vlCast);
+    return success();
+  }
+};
+
+using RVVFrec7OpLowering =
+    UnaryAAUnMaskedRoundingModeOpLowering<RVVFrec7Op, RVVIntrFrec7Op>;
+using RVVFsqrtOpLowering =
+    UnaryAAUnMaskedRoundingModeOpLowering<RVVFsqrtOp, RVVIntrFsqrtOp>;
+
+struct RVVMAccOpLowering : public ConvertOpToLLVMPattern<RVVMAccOp> {
+  using ConvertOpToLLVMPattern<RVVMAccOp>::ConvertOpToLLVMPattern;
+
+  LogicalResult
+  matchAndRewrite(RVVMAccOp op, OpAdaptor adaptor,
+                  ConversionPatternRewriter &rewriter) const override {
+
+    auto loc = op.getLoc();
+    auto resultType = op.getResult().getType();
+    Value src1 = op.getOperand(0);
+    Value src2 = op.getOperand(1);
+    Value src3 = op.getOperand(2);
+    Value vl = op.getOperand(3);
+    Value vlCast = rewriter
+                       .create<UnrealizedConversionCastOp>(loc,
+                           rewriter.getIntegerType(RVVTargetIndexBitwidth),
+                           vl)
+                       .getResult(0);
+    
+    ValueRange operands = adaptor.getOperands();
+    // Get the type of the `vl` value.
+    Type vlType = operands.back().getType();
+    auto attrs = op->getAttrs();
+    Value vtaValue;
+    if (attrs.empty()) {
+      // Default attribute for the vta setting (vta = 1).
+      // Add the vta = 1 to the operand list.
+      Attribute vtaDefaultAttr = rewriter.getIntegerAttr(
+          vlType, APInt(vlType.cast<IntegerType>().getWidth(), 0));
+     vtaValue =
+          rewriter.create<LLVM::ConstantOp>(loc, vlType, vtaDefaultAttr);
+    } else if (attrs.size() == 1) {
+      // Add the vta to the operand list according to the attribute value.
+      Attribute attr = attrs[0].getValue();
+      IntegerAttr vtaAttr = attr.cast<IntegerAttr>();
+      vtaValue = rewriter.create<LLVM::ConstantOp>(loc, vlType, vtaAttr);
+    } else {
+      return failure();
+    }
+
+    rewriter.replaceOpWithNewOp<RVVIntrMAccOp>(op, resultType, src1, src2,
+                                               src3, vlCast, vtaValue);
+    return success();
+  }
+};
+
 /// Populate the given list with patterns that convert from RVV to LLVM.
 void mlir::populateRVVLegalizeForLLVMExportPatterns(
     LLVMTypeConverter &converter, OwningRewritePatternList &patterns,
@@ -247,10 +387,19 @@ void mlir::populateRVVLegalizeForLLVMExportPatterns(
                >(converter, &converter.getContext());
   patterns.add<RVVSetVlOpLowering>(converter);
   patterns.add<RVVLoadOpLowering,
-               RVVStoreOpLowering>(converter);
-  patterns.add<RsqrtOpLowering>(converter);
+               RVVSegLoadOpLowering,
+               RVVStoreOpLowering,
+               RVVSegStoreOpLowering>(converter);
+  patterns.add<RsqrtOpLowering, 
+               RVVFrec7OpLowering,
+               RVVFsqrtOpLowering>(converter);
+  patterns.add<RVVMAccOpLowering>(converter);
   patterns.add<RVVAddOpLowering,
-               RVVMulOpLowering>(converter);
+               RVVMulOpLowering,
+               RVVFMaxOpLowering,
+               RVVFMinOpLowering,
+               RVVFAddOpLowering,
+               RVVFMulOpLowering>(converter);
   // clang-format on
 }
 
@@ -258,15 +407,33 @@ void mlir::configureRVVLegalizeForExportTarget(LLVMConversionTarget &target) {
   // clang-format off
   target.addLegalOp<RVVIntrSetVlIOp,
                     RVVIntrLoadEleOp,
+                    RVVIntrSegLoadOp,
                     RVVIntrStoreEleOp,
+                    RVVIntrSegStoreOp,
                     IntrFrsqrt7Op,
+                    RVVIntrFsqrtOp,
+                    RVVIntrFrec7Op,
+                    RVVIntrMAccOp,
                     RVVIntrAddOp,
-                    RVVIntrMulOp>();
+                    RVVIntrMulOp,
+                    RVVIntrFMaxOp,
+                    RVVIntrFMinOp,
+                    RVVIntrFAddOp,
+                    RVVIntrFMulOp>();
   target.addIllegalOp<RVVSetVlOp,
                       RVVLoadOp,
+                      RVVSegLoadOp,
                       RVVStoreOp,
+                      RVVSegStoreOp,
                       RsqrtOp,
+                      RVVFsqrtOp,
+                      RVVFrec7Op,
+                      RVVMAccOp,
                       RVVAddOp,
-                      RVVMulOp>();
+                      RVVMulOp,
+                      RVVFMaxOp,
+                      RVVFMinOp,
+                      RVVFAddOp,
+                      RVVFMulOp>();
   // clang-format on
 }
