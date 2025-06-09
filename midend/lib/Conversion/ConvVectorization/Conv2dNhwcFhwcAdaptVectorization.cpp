@@ -171,7 +171,7 @@ public:
                                   builder.create<vector::ReductionOp>(
                                       loc, ::mlir::vector::CombiningKind::ADD,
                                       tmpVector,
-                                      ::mlir::arith::FastMathFlags::none);
+                                      ::mlir::arith::FastMathFlags::reassoc);
                               resultVector = builder.create<vector::InsertOp>(
                                   loc, tmpValue, itrArgs2[0], iv2);
                             } else {
@@ -181,7 +181,7 @@ public:
                                   builder.create<vector::ReductionOp>(
                                       loc, ::mlir::vector::CombiningKind::ADD,
                                       tmpVector,
-                                      ::mlir::arith::FastMathFlags::none);
+                                      ::mlir::arith::FastMathFlags::reassoc);
                               resultVector = builder.create<vector::InsertOp>(
                                   loc, tmpValue, itrArgs2[0], iv2);
                             }
