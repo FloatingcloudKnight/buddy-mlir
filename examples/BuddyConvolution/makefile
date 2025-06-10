@@ -190,7 +190,7 @@ conv2d-nhwc-fhwc-adapt-aot:
 
 conv2d-nhwc-fhwc-lower:
 	@${BUDDY_OPT} ./conv2d-nhwc-fhwc.mlir \
-	  -conv2d-nhwc-fhwc-vectorization \
+	  -conv2d-nhwc-fhwc-vectorization64 \
 		-o log.mlir
 
 test-run:

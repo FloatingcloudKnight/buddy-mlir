@@ -58,9 +58,9 @@ using namespace vector;
 
 namespace {
 
-class Conv2dNhwcFhwcVectorizationPattern2 : public ConversionPattern {
+class Conv2dNhwcFhwcVectorizationPattern16 : public ConversionPattern {
 public:
-  explicit Conv2dNhwcFhwcVectorizationPattern2(MLIRContext *context,
+  explicit Conv2dNhwcFhwcVectorizationPattern16(MLIRContext *context,
                                               int64_t vecsizeParam)
       : ConversionPattern(linalg::Conv2DNhwcFhwcOp::getOperationName(), 1,
                           context) {
@@ -303,25 +303,25 @@ private:
 } // end anonymous namespace
 
 //===----------------------------------------------------------------------===//
-// Conv2dNhwcFhwcVectorizationPass2
+// Conv2dNhwcFhwcVectorizationPass16
 //===----------------------------------------------------------------------===//
 
 /// This is a partial lowering linalg pooling max operations to mixture of
 /// Arith + Vector operations.
 namespace {
-class Conv2dNhwcFhwcVectorizationPass2
-    : public PassWrapper<Conv2dNhwcFhwcVectorizationPass2,
+class Conv2dNhwcFhwcVectorizationPass16
+    : public PassWrapper<Conv2dNhwcFhwcVectorizationPass16,
                          OperationPass<ModuleOp>> {
 public:
-  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(Conv2dNhwcFhwcVectorizationPass2)
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(Conv2dNhwcFhwcVectorizationPass16)
   StringRef getArgument() const final {
-    return "conv2d-nhwc-fhwc-vectorization2";
+    return "conv2d-nhwc-fhwc-vectorization16";
   }
   StringRef getDescription() const final {
-    return "Conv2d_Nhwc_Fhwc Vectorization2.";
+    return "Conv2d_Nhwc_Fhwc Vectorization16.";
   }
-  Conv2dNhwcFhwcVectorizationPass2() = default;
-  Conv2dNhwcFhwcVectorizationPass2(const Conv2dNhwcFhwcVectorizationPass2 &) {}
+  Conv2dNhwcFhwcVectorizationPass16() = default;
+  Conv2dNhwcFhwcVectorizationPass16(const Conv2dNhwcFhwcVectorizationPass16 &) {}
 
   void runOnOperation() override;
 
@@ -331,11 +331,11 @@ public:
   }
   Option<int64_t> vecsize{*this, "vec-size",
                           llvm::cl::desc("Specify vector type size."),
-                          llvm::cl::init(256)};
+                          llvm::cl::init(32)};
 };
 } // end anonymous namespace.
 
-void Conv2dNhwcFhwcVectorizationPass2::runOnOperation() {
+void Conv2dNhwcFhwcVectorizationPass16::runOnOperation() {
   MLIRContext *context = &getContext();
   ModuleOp module = getOperation();
 
@@ -348,7 +348,7 @@ void Conv2dNhwcFhwcVectorizationPass2::runOnOperation() {
   target.addLegalOp<linalg::FillOp>();
 
   RewritePatternSet patterns(context);
-  patterns.add<Conv2dNhwcFhwcVectorizationPattern2>(context, vecsize);
+  patterns.add<Conv2dNhwcFhwcVectorizationPattern16>(context, vecsize);
 
   if (failed(applyPartialConversion(module, target, std::move(patterns))))
     signalPassFailure();
@@ -356,8 +356,8 @@ void Conv2dNhwcFhwcVectorizationPass2::runOnOperation() {
 
 namespace mlir {
 namespace buddy {
-void registerConv2dNhwcFhwcVectorizationPass2() {
-  PassRegistration<Conv2dNhwcFhwcVectorizationPass2>();
+void registerConv2dNhwcFhwcVectorizationPass16() {
+  PassRegistration<Conv2dNhwcFhwcVectorizationPass16>();
 }
 } // namespace buddy
 } // namespace mlir
