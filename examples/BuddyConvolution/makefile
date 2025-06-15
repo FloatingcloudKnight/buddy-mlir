@@ -206,3 +206,36 @@ test-run:
 		-reconcile-unrealized-casts | \
 	${MLIR_CPU_RUNNER} ${OPT_FLAG} -e main -entry-point-result=void \
 		-shared-libs=${MLIR_RUNNER_UTILS} -shared-libs=${MLIR_C_RUNNER_UTILS}
+
+conv2d-nchw-fchw-lower:
+	@${BUDDY_OPT} ./conv2d-nchw-fchw.mlir \
+		-convert-linalg-to-loops \
+		-o log.mlir
+
+conv2d-nchw-fchw-run:
+	@${BUDDY_OPT} ./conv2d-nchw-fchw.mlir \
+		-convert-linalg-to-loops \
+		-lower-affine \
+		-arith-bufferize \
+		-convert-scf-to-cf \
+		-convert-vector-to-llvm \
+		-convert-arith-to-llvm \
+		-finalize-memref-to-llvm \
+		-convert-func-to-llvm \
+		-reconcile-unrealized-casts | \
+	${MLIR_CPU_RUNNER} ${OPT_FLAG} -e main -entry-point-result=void \
+		-shared-libs=${MLIR_RUNNER_UTILS} -shared-libs=${MLIR_C_RUNNER_UTILS}
+
+conv2d-nchw-fchw-vec:
+	@${BUDDY_OPT} ./conv2d-nchw-fchw-vec.mlir \
+		-convert-linalg-to-loops \
+		-lower-affine \
+		-arith-bufferize \
+		-convert-scf-to-cf \
+		-convert-vector-to-llvm \
+		-convert-arith-to-llvm \
+		-finalize-memref-to-llvm \
+		-convert-func-to-llvm \
+		-reconcile-unrealized-casts | \
+	${MLIR_CPU_RUNNER} ${OPT_FLAG} -e main -entry-point-result=void \
+		-shared-libs=${MLIR_RUNNER_UTILS} -shared-libs=${MLIR_C_RUNNER_UTILS}
