@@ -44,7 +44,7 @@ using namespace mlir;
 using namespace vector;
 
 //===----------------------------------------------------------------------===//
-// Rewrite Pattern
+// Rewriter Pattern
 //===----------------------------------------------------------------------===//
 
 namespace {
@@ -64,52 +64,55 @@ public:
     auto loc = op->getLoc();
     auto ctx = op->getContext();
 
-    // Check if the operation is a TOSA Matmul operation.
-
-    // Retrieve input tensors A, B, and C.
     Value A = op->getOperand(0);
     Value B = op->getOperand(1);
-    Value C = op->getOperand(2);
+    Value C = op->getOpResult(0);
+
     auto reshapeBOp = B.getDefiningOp<tosa::ReshapeOp>();
-    if (!reshapeBOp){
-      std::cout << "ReshapeOp not found for B"<< "\n";
+    if (!reshapeBOp) {
       return failure();
     }
     auto transposeBOp =
         reshapeBOp.getOperand().getDefiningOp<tosa::TransposeOp>();
-    if (!transposeBOp){
-      std::cout << "TransposeOp not found for B"<< "\n";
+    if (!transposeBOp) {
       return failure();
     }
     auto reshapeCUserIt = C.getUsers().begin();
-    if (reshapeCUserIt == C.getUsers().end()){
-      std::cout << "ReshapeOp user not found for C"<< "\n";
+    if (reshapeCUserIt == C.getUsers().end()) {
       return failure();
     }
     Operation *reshapeCOp = *reshapeCUserIt;
-    if (!isa<tosa::ReshapeOp>(reshapeCOp)){
-      std::cout << "ReshapeOp not found for C"<< "\n";
+    if (!isa<tosa::ReshapeOp>(reshapeCOp)) {
       return failure();
     }
-    auto transposeCUserIt = reshapeCOp->getOperand(0).getUsers().begin();
-    if (transposeCUserIt == reshapeCOp->getOperand(0).getUsers().end()){
-      std::cout << "ReshapeOp user not found for C"<< "\n";
+
+    auto transposeCUserIt = reshapeCOp->getOpResult(0).getUsers().begin();
+    if (transposeCUserIt == reshapeCOp->getOpResult(0).getUsers().end()) {
       return failure();
     }
     Operation *transposeCOp = *transposeCUserIt;
-    if (!isa<tosa::TransposeOp>(transposeCOp)){
-      std::cout << "TransposeOp not found for C"<< "\n";
+    if (!isa<tosa::TransposeOp>(transposeCOp)) {
       return failure();
     }
-    Value transposeB = transposeBOp->getOperand(0);
-    Value transposeC = transposeCOp->getOperand(2);
+
+    auto nextUserIt = transposeCOp->getOpResult(0).getUsers().begin();
+    if (nextUserIt == transposeCOp->getOpResult(0).getUsers().end()) {
+      return failure();
+    }
+    Operation *nextUserOp = *nextUserIt;
 
     // Get i1 as the element type for mask vector.
     IntegerType i1 = IntegerType::get(ctx, 1);
     VectorType vectorMaskTy = mlir::VectorType::get({vecSize}, i1);
     // Acquire the element type of input tensors.
-    Type elementType = A.getType().cast<MemRefType>().getElementType();
+    ShapedType AType = A.getType().cast<ShapedType>();
+    Type elementType = AType.getElementType();
     VectorType vectorTy = mlir::VectorType::get({vecSize}, elementType);
+
+    ShapedType newBType =
+        transposeBOp.getOperand(0).getType().cast<ShapedType>();
+    ShapedType newCType =
+        transposeCOp->getOpResult(0).getType().cast<ShapedType>();
 
     // Define constants.
     const Value c0 = rewriter.create<arith::ConstantIndexOp>(loc, 0);
@@ -122,13 +125,20 @@ public:
 
     // Create pass through vector.
     Value passThroughVec = rewriter.create<SplatOp>(loc, vectorTy, zero);
+    Value newA = rewriter.create<bufferization::ToMemrefOp>(
+        loc, MemRefType::get(AType.getShape(), elementType), A);
+    Value newB = rewriter.create<bufferization::ToMemrefOp>(
+        loc, MemRefType::get(newBType.getShape(), elementType),
+        transposeBOp.getOperand(0));
+    Value newC = rewriter.create<memref::AllocaOp>(
+        loc, MemRefType::get(newCType.getShape(), elementType));
 
     // Get dimensions of input tensors.
-    Value num = rewriter.create<memref::DimOp>(loc, A, c0);
-    Value batch = rewriter.create<memref::DimOp>(loc, A, c1);
-    Value aRow = rewriter.create<memref::DimOp>(loc, A, c2);
-    Value aCol = rewriter.create<memref::DimOp>(loc, A, c3);
-    Value bCol = rewriter.create<memref::DimOp>(loc, transposeB, c3);
+    Value num = rewriter.create<memref::DimOp>(loc, newA, c0);
+    Value batch = rewriter.create<memref::DimOp>(loc, newA, c1);
+    Value aRow = rewriter.create<memref::DimOp>(loc, newA, c2);
+    Value aCol = rewriter.create<memref::DimOp>(loc, newA, c3);
+    Value bCol = rewriter.create<memref::DimOp>(loc, newB, c3);
 
     // Calculate the upper bound for vectorized processing
     // - Subtract `vlStep` is to avoid overflow at the vectorization tail.
@@ -144,21 +154,21 @@ public:
               loc, c0, upperBound, /*Step=*/vlStep, ValueRange{c0},
               [&](OpBuilder &nestedBuilder, Location nestedLoc, Value iv,
                   ValueRange itrArgs) {
-                // Get a vector of the output memref.
+                // Get newA vector of the output memref.
                 Value cVec = nestedBuilder.create<vector::LoadOp>(
-                    nestedLoc, vectorTy, transposeC,
+                    nestedLoc, vectorTy, newC,
                     ValueRange{ivs[0], ivs[2], ivs[1], iv});
                 auto iterVec = nestedBuilder.create<scf::ForOp>(
                     nestedLoc, c0, aCol, /*Step=*/vlStep, ValueRange{cVec},
                     [&](OpBuilder &nestedBuilder0, Location nestedLoc0,
                         Value iv0, ValueRange itrArgs0) {
                       Value aVal = nestedBuilder0.create<memref::LoadOp>(
-                          nestedLoc0, elementType, A,
-                          ValueRange{ivs[0], ivs[1], ivs[2], iv0});
+                          nestedLoc0, elementType, newA,
+                          ValueRange{ivs[1], ivs[2], iv0});
                       Value aVec = nestedBuilder0.create<vector::SplatOp>(
                           nestedLoc0, vectorTy, aVal);
                       Value bVec = nestedBuilder0.create<vector::LoadOp>(
-                          nestedLoc0, vectorTy, B,
+                          nestedLoc0, vectorTy, newB,
                           ValueRange{ivs[0], iv0, ivs[1], iv});
 
                       // Compute the result vector either through integer
@@ -177,7 +187,7 @@ public:
                       builder.create<scf::YieldOp>(loc, tmpVec);
                     });
                 nestedBuilder.create<vector::StoreOp>(
-                    nestedLoc, iterVec.getResult(0), transposeC,
+                    nestedLoc, iterVec.getResult(0), newC,
                     ValueRange{ivs[0], ivs[2], ivs[1], iv});
                 Value idx =
                     nestedBuilder.create<arith::AddIOp>(nestedLoc, iv, vlStep);
@@ -190,21 +200,21 @@ public:
           Value tailMask =
               builder.create<CreateMaskOp>(loc, vectorMaskTy, tailSize);
           Value maskedCVec = builder.create<MaskedLoadOp>(
-              loc, vectorTy, transposeC,
-              ValueRange{ivs[0], ivs[2], ivs[1], idx}, tailMask,
-              passThroughVec);
+              loc, vectorTy, newC, ValueRange{ivs[0], ivs[2], ivs[1], idx},
+              tailMask, passThroughVec);
           auto iterVec = builder.create<scf::ForOp>(
               loc, c0, aCol, /*Step=*/vlStep, ValueRange{maskedCVec},
               [&](OpBuilder &nestedBuilder, Location nestedLoc, Value iv,
                   ValueRange itrArgs) {
                 Value aVal = nestedBuilder.create<memref::LoadOp>(
-                    nestedLoc, elementType, A,
-                    ValueRange{ivs[0], ivs[1], ivs[2], iv});
+                    nestedLoc, elementType, newA,
+                    ValueRange{ivs[1], ivs[2], iv});
                 Value aVec = nestedBuilder.create<vector::SplatOp>(
                     nestedLoc, vectorTy, aVal);
                 Value bVec = nestedBuilder.create<MaskedLoadOp>(
-                    nestedLoc, vectorTy, B, ValueRange{ivs[0], iv, ivs[1], idx},
-                    tailMask, passThroughVec);
+                    nestedLoc, vectorTy, newB,
+                    ValueRange{ivs[0], iv, ivs[1], idx}, tailMask,
+                    passThroughVec);
 
                 // Compute the result vector either through integer
                 // multiplication and addition or fused multiply-add
@@ -221,11 +231,18 @@ public:
                 }
                 builder.create<scf::YieldOp>(nestedLoc, tmpVec);
               });
-          builder.create<MaskedStoreOp>(loc, transposeC,
+          builder.create<MaskedStoreOp>(loc, newC,
                                         ValueRange{ivs[0], ivs[2], ivs[1], idx},
                                         tailMask, iterVec.getResult(0));
         });
+    Value output = rewriter.create<bufferization::ToTensorOp>(
+        loc, newCType, newC, /*restrict=*/true);
+
+    rewriter.eraseOp(reshapeBOp);
+    rewriter.eraseOp(transposeBOp);
     rewriter.eraseOp(op);
+    rewriter.eraseOp(reshapeCOp);
+    rewriter.replaceOp(transposeCOp, output);
     return success();
   }
 
@@ -262,7 +279,8 @@ public:
 
   void getDependentDialects(DialectRegistry &registry) const override {
     registry.insert<linalg::LinalgDialect, scf::SCFDialect,
-                    affine::AffineDialect, VectorDialect>();
+                    bufferization::BufferizationDialect, affine::AffineDialect,
+                    tosa::TosaDialect, VectorDialect>();
   }
 
   Option<int64_t> vecSize{*this, "vector-size",
@@ -278,7 +296,8 @@ void TransposeFusionVectorizationPass::runOnOperation() {
   ConversionTarget target(*context);
   target.addLegalDialect<arith::ArithDialect, affine::AffineDialect,
                          scf::SCFDialect, memref::MemRefDialect,
-                         tosa::TosaDialect, VectorDialect>();
+                         linalg::LinalgDialect, VectorDialect,
+                         bufferization::BufferizationDialect>();
   target.addLegalOp<ModuleOp, func::FuncOp, func::ReturnOp>();
   target.addLegalOp<linalg::FillOp>();
 
