@@ -78,11 +78,41 @@ public:
     Value input = op->getOperand(0);
     Value kernel = op->getOperand(1);
     Value output = op->getOperand(2);
+    // Get Strides.
+    SmallVector<int64_t, 2> strides = {1, 1};
+    if (op->hasAttr("strides")) {
+      strides.clear();
+      for (auto value : op->getAttrOfType<mlir::DenseIntElementsAttr>("strides")
+                            .getValues<int64_t>()) {
+        strides.push_back(value);
+      }
+    }
+    bool stride1 = strides[0] != 1;
+    bool stride2 = strides[1] != 1;
+    Value strHeight = rewriter.create<arith::ConstantIndexOp>(loc, strides[0]);
+    Value strWidth = rewriter.create<arith::ConstantIndexOp>(loc, strides[1]);
+
+    // Get Dilations.
+    SmallVector<int64_t, 2> dilations = {1, 1};
+    if (op->hasAttr("dilations")) {
+      dilations.clear();
+      for (auto value :
+           op->getAttrOfType<mlir::DenseIntElementsAttr>("dilations")
+               .getValues<int64_t>()) {
+        dilations.push_back(value);
+      }
+    }
+    bool dilated1 = dilations[0] != 1;
+    bool dilated2 = dilations[1] != 1;
+    Value dilHeight =
+        rewriter.create<arith::ConstantIndexOp>(loc, dilations[0]);
+    Value dilWidth = rewriter.create<arith::ConstantIndexOp>(loc, dilations[1]);
 
     // Get Constants.
     const Value c0 = rewriter.create<arith::ConstantIndexOp>(loc, 0);
     const Value c1 = rewriter.create<arith::ConstantIndexOp>(loc, 1);
     const Value c2 = rewriter.create<arith::ConstantIndexOp>(loc, 2);
+    const Value c3 = rewriter.create<arith::ConstantIndexOp>(loc, 3);
 
     // Get Dimensions of Input.
     Value batch = rewriter.create<memref::DimOp>(loc, input, c0);
@@ -95,7 +125,7 @@ public:
     // Get Dimensions of Outputs.
     Value height_o = rewriter.create<memref::DimOp>(loc, output, c1);
     Value width_o = rewriter.create<memref::DimOp>(loc, output, c2);
-
+    
     // Get ElementType of kernel and create pass through vector.
     ShapedType kernelTy = kernel.getType().cast<ShapedType>();
     Type elementTy = kernelTy.getElementType();
@@ -110,107 +140,78 @@ public:
         buddy::insertZeroConstantOp(ctx, rewriter, loc, elementTy);
     Value tmpVec = rewriter.create<SplatOp>(loc, tmpVectorTy, zero);
 
-    // Define AffineMap of inputVector.
-    AffineExpr input0, input1, input2, input3, input4, input5;
-    bindDims(ctx, input0, input1, input2, input3, input4, input5);
-    AffineMap inputVectorMap = AffineMap::get(
-        /*dimCount=*/6, /*symbolCount=*/0,
-        {input0, input1 + input4, input2 + input5, input3}, ctx);
-    // Define AffineMap of inputVector.
-    AffineExpr output0, output1, output2, output3;
-    bindDims(ctx, output0, output1, output2, output3);
-    AffineMap outputVectorMap = AffineMap::get(
-        /*dimCount=*/4, /*symbolCount=*/0,
-        {output0, output1, output2, output3 * 0}, ctx);
-
-    // Create loop nest in NHoWoHkWkF-order.
-    SmallVector<Value, 8> lowerBounds(3, c0);
-    SmallVector<Value, 8> uperBounds{batch, height_o, width_o};
-    SmallVector<int64_t, 8> steps(3, /*Value=*/1);
+    SmallVector<Value, 8> lowerBounds(4, c0);
+    SmallVector<Value, 8> uperBounds{batch, height_o, width_o, f_o};
+    SmallVector<int64_t, 8> steps(4, /*Value=*/1);
     affine::buildAffineLoopNest(
         rewriter, loc, lowerBounds, uperBounds, steps,
         [&](OpBuilder &builder, Location loc, ValueRange ivs) {
-          // h-dim of kernel.
+          // Create strides variables.
+          Value tmpIvs1 = ivs[1];
+          if (stride1) {
+            tmpIvs1 = builder.create<arith::MulIOp>(loc, ivs[1], strHeight);
+          }
+          Value tmpIvs2 = ivs[2];
+          if (stride2) {
+            tmpIvs2 = builder.create<arith::MulIOp>(loc, ivs[2], strWidth);
+          }
+          Value tmp_result = builder.create<memref::LoadOp>(
+              loc, elementTy, output,
+              ValueRange{ivs[0], ivs[1], ivs[2], ivs[3]});
           auto tmp0 = builder.create<affine::AffineForOp>(
               loc, ValueRange{c0}, builder.getDimIdentityMap(),
-              ValueRange{height_k}, builder.getDimIdentityMap(), /*Step=*/1,
-              ValueRange{tmpVec},
-              [&](OpBuilder &nestedBuilder, Location nestedLoc, Value iv0,
+              ValueRange{height_k}, builder.getDimIdentityMap(),
+              /*Step=*/1, ValueRange{tmp_result},
+              [&](OpBuilder &builder, Location loc, Value iv0,
                   ValueRange itrArgs0) {
-                // w-dim of kernel.
-                auto tmp1 = nestedBuilder.create<affine::AffineForOp>(
-                    nestedLoc, ValueRange{c0}, builder.getDimIdentityMap(),
+                // Create dilated[0] variables.
+                Value tmpIvs3 = iv0;
+                if (dilated1) {
+                  tmpIvs3 = builder.create<arith::MulIOp>(loc, iv0, dilHeight);
+                }
+                Value inputHeight =
+                    builder.create<arith::AddIOp>(loc, tmpIvs1, tmpIvs3);
+                auto tmp1 = builder.create<affine::AffineForOp>(
+                    loc, ValueRange{c0}, builder.getDimIdentityMap(),
                     ValueRange{width_k}, builder.getDimIdentityMap(),
-                    /*Step=*/1, ValueRange{tmpVec},
+                    /*Step=*/1, ValueRange{itrArgs0[0]},
                     [&](OpBuilder &builder, Location loc, Value iv1,
                         ValueRange itrArgs1) {
-                      Value inputVector =
-                          builder.create<affine::AffineVectorLoadOp>(
-                              loc, vectorTy, input, inputVectorMap,
-                              ValueRange{ivs[0], ivs[1], ivs[2], c0, iv0, iv1});
-                      // f-dim of kernel.
-                      auto tmp2 = builder.create<affine::AffineForOp>(
-                          loc, ValueRange{c0}, builder.getDimIdentityMap(),
-                          ValueRange{f_o}, builder.getDimIdentityMap(),
-                          /*Step=*/1, ValueRange{tmpVec},
-                          [&](OpBuilder &builder, Location loc, Value iv2,
-                              ValueRange itrArgs2) {
-                            Value kernelVector =
-                                builder.create<affine::AffineVectorLoadOp>(
-                                    loc, vectorTy, kernel, outputVectorMap,
-                                    ValueRange{iv2, iv0, iv1, c0});
-                            // Conv2d_nhwc_fhwc.
-                            // C-dimension reduction and insert result into the
-                            // f-dimension of output.
-                            Value resultVector;
-                            if (auto ty =
-                                    llvm::dyn_cast<IntegerType>(elementTy)) {
-                              Value tmpVector = builder.create<arith::MulIOp>(
-                                  loc, inputVector, kernelVector);
-                              Value tmpValue =
-                                  builder.create<vector::ReductionOp>(
-                                      loc, ::mlir::vector::CombiningKind::ADD,
-                                      tmpVector,
-                                      ::mlir::arith::FastMathFlags::reassoc);
-                              resultVector = builder.create<vector::InsertOp>(
-                                  loc, tmpValue, itrArgs2[0], iv2);
-                            } else {
-                              Value tmpVector = builder.create<arith::MulFOp>(
-                                  loc, inputVector, kernelVector);
-                              Value tmpValue =
-                                  builder.create<vector::ReductionOp>(
-                                      loc, ::mlir::vector::CombiningKind::ADD,
-                                      tmpVector,
-                                      ::mlir::arith::FastMathFlags::reassoc);
-                              resultVector = builder.create<vector::InsertOp>(
-                                  loc, tmpValue, itrArgs2[0], iv2);
-                            }
-                            builder.create<affine::AffineYieldOp>(loc,
-                                                                  resultVector);
-                          });
-                      Value tmp3;
-                      if (auto ty = llvm::dyn_cast<IntegerType>(elementTy)) {
-                        tmp3 = builder.create<arith::AddIOp>(
-                            loc, tmp2.getResult(0), itrArgs1[0]);
-                      } else {
-                        tmp3 = builder.create<arith::AddFOp>(
-                            loc, tmp2.getResult(0), itrArgs1[0]);
+                      // Create dilated[1] variables.
+                      Value tmpIvs4 = iv1;
+                      if (dilated2) {
+                        tmpIvs4 =
+                            builder.create<arith::MulIOp>(loc, iv1, dilWidth);
                       }
-                      builder.create<affine::AffineYieldOp>(loc, tmp3);
+                      Value inputWidth =
+                          builder.create<arith::AddIOp>(loc, tmpIvs2, tmpIvs4);
+                      Value inputVector = builder.create<vector::LoadOp>(
+                          loc, vectorTy, input,
+                          ValueRange{ivs[0], inputHeight, inputWidth, c0});
+                      Value kernelVector = builder.create<vector::LoadOp>(
+                          loc, vectorTy, kernel,
+                          ValueRange{ivs[3], iv0, iv1, c0});
+                      // FMA
+                      Value tmpVec;
+                      if (auto ty = llvm::dyn_cast<IntegerType>(elementTy)) {
+                        tmpVec = builder.create<arith::MulIOp>(loc, inputVector,
+                                                               kernelVector);
+
+                      } else {
+                        tmpVec = builder.create<arith::MulFOp>(loc, inputVector,
+                                                               kernelVector);
+                      }
+                      Value resultVal = builder.create<vector::ReductionOp>(
+                          loc, vector::CombiningKind::ADD, tmpVec, itrArgs1[0],
+                          ::mlir::arith::FastMathFlags::reassoc);
+                      builder.create<affine::AffineYieldOp>(loc, resultVal);
                     });
-                Value tmp4;
-                if (auto ty = llvm::dyn_cast<IntegerType>(elementTy)) {
-                  tmp4 = nestedBuilder.create<arith::AddIOp>(
-                      nestedLoc, tmp1.getResult(0), itrArgs0[0]);
-                } else {
-                  tmp4 = nestedBuilder.create<arith::AddFOp>(
-                      nestedLoc, tmp1.getResult(0), itrArgs0[0]);
-                }
-                nestedBuilder.create<affine::AffineYieldOp>(nestedLoc, tmp4);
+                builder.create<affine::AffineYieldOp>(loc,
+                                                            tmp1.getResult(0));
               });
-          builder.create<affine::AffineVectorStoreOp>(
-              loc, tmp0.getResult(0), output, outputVectorMap,
-              ValueRange{ivs[0], ivs[1], ivs[2], c0});
+          builder.create<memref::StoreOp>(
+              loc, tmp0.getResult(0), output,
+              ValueRange{ivs[0], ivs[1], ivs[2], ivs[3]});
         });
     // Remove the origin convolution operation.
     rewriter.eraseOp(op);
