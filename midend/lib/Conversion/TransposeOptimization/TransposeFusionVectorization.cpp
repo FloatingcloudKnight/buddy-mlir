@@ -130,14 +130,13 @@ public:
     Value newB = rewriter.create<bufferization::ToMemrefOp>(
         loc, MemRefType::get(newBType.getShape(), elementType),
         transposeBOp.getOperand(0));
-    Value newC = rewriter.create<memref::AllocaOp>(
+    Value newC = rewriter.create<memref::AllocOp>(
         loc, MemRefType::get(newCType.getShape(), elementType));
 
     // Get dimensions of input tensors.
-    Value num = rewriter.create<memref::DimOp>(loc, newA, c0);
-    Value batch = rewriter.create<memref::DimOp>(loc, newA, c1);
-    Value aRow = rewriter.create<memref::DimOp>(loc, newA, c2);
-    Value aCol = rewriter.create<memref::DimOp>(loc, newA, c3);
+    Value batch = rewriter.create<memref::DimOp>(loc, newA, c0);
+    Value aRow = rewriter.create<memref::DimOp>(loc, newA, c1);
+    Value aCol = rewriter.create<memref::DimOp>(loc, newA, c2);
     Value bCol = rewriter.create<memref::DimOp>(loc, newB, c3);
 
     // Calculate the upper bound for vectorized processing
@@ -148,28 +147,24 @@ public:
     Value upperBound = rewriter.create<arith::AddIOp>(loc, upperBoundTmp, c1);
 
     affine::buildAffineLoopNest(
-        rewriter, loc, {c0, c0, c0}, {num, batch, aRow}, /*Step=*/{1, 1, 1},
+        rewriter, loc, {c0, c0}, {batch, aRow}, /*Step=*/{1, 1},
         [&](OpBuilder &builder, Location loc, ValueRange ivs) {
           auto iterIdx = builder.create<scf::ForOp>(
               loc, c0, upperBound, /*Step=*/vlStep, ValueRange{c0},
               [&](OpBuilder &nestedBuilder, Location nestedLoc, Value iv,
                   ValueRange itrArgs) {
-                // Get newA vector of the output memref.
-                Value cVec = nestedBuilder.create<vector::LoadOp>(
-                    nestedLoc, vectorTy, newC,
-                    ValueRange{ivs[0], ivs[2], ivs[1], iv});
                 auto iterVec = nestedBuilder.create<scf::ForOp>(
-                    nestedLoc, c0, aCol, /*Step=*/vlStep, ValueRange{cVec},
+                    nestedLoc, c0, aCol, /*Step=*/c1, ValueRange{passThroughVec},
                     [&](OpBuilder &nestedBuilder0, Location nestedLoc0,
                         Value iv0, ValueRange itrArgs0) {
                       Value aVal = nestedBuilder0.create<memref::LoadOp>(
                           nestedLoc0, elementType, newA,
-                          ValueRange{ivs[1], ivs[2], iv0});
+                          ValueRange{ivs[0], ivs[1], iv0});
                       Value aVec = nestedBuilder0.create<vector::SplatOp>(
                           nestedLoc0, vectorTy, aVal);
                       Value bVec = nestedBuilder0.create<vector::LoadOp>(
                           nestedLoc0, vectorTy, newB,
-                          ValueRange{ivs[0], iv0, ivs[1], iv});
+                          ValueRange{c0, iv0, ivs[0], iv});
 
                       // Compute the result vector either through integer
                       // multiplication and addition or fused multiply-add
@@ -188,7 +183,7 @@ public:
                     });
                 nestedBuilder.create<vector::StoreOp>(
                     nestedLoc, iterVec.getResult(0), newC,
-                    ValueRange{ivs[0], ivs[2], ivs[1], iv});
+                    ValueRange{c0, ivs[1], ivs[0], iv});
                 Value idx =
                     nestedBuilder.create<arith::AddIOp>(nestedLoc, iv, vlStep);
                 nestedBuilder.create<scf::YieldOp>(nestedLoc, idx);
@@ -196,24 +191,21 @@ public:
           // Compute the tail size and Process the remaining elements
           // using masked vector operations.
           Value idx = iterIdx.getResult(0);
-          Value tailSize = builder.create<arith::SubIOp>(loc, aCol, idx);
+          Value tailSize = builder.create<arith::SubIOp>(loc, bCol, idx);
           Value tailMask =
               builder.create<CreateMaskOp>(loc, vectorMaskTy, tailSize);
-          Value maskedCVec = builder.create<MaskedLoadOp>(
-              loc, vectorTy, newC, ValueRange{ivs[0], ivs[2], ivs[1], idx},
-              tailMask, passThroughVec);
           auto iterVec = builder.create<scf::ForOp>(
-              loc, c0, aCol, /*Step=*/vlStep, ValueRange{maskedCVec},
+              loc, c0, aCol, /*Step=*/c1, ValueRange{passThroughVec},
               [&](OpBuilder &nestedBuilder, Location nestedLoc, Value iv,
                   ValueRange itrArgs) {
                 Value aVal = nestedBuilder.create<memref::LoadOp>(
                     nestedLoc, elementType, newA,
-                    ValueRange{ivs[1], ivs[2], iv});
+                    ValueRange{ivs[0], ivs[1], iv});
                 Value aVec = nestedBuilder.create<vector::SplatOp>(
                     nestedLoc, vectorTy, aVal);
                 Value bVec = nestedBuilder.create<MaskedLoadOp>(
                     nestedLoc, vectorTy, newB,
-                    ValueRange{ivs[0], iv, ivs[1], idx}, tailMask,
+                    ValueRange{c0, iv, ivs[0], idx}, tailMask,
                     passThroughVec);
 
                 // Compute the result vector either through integer
@@ -232,7 +224,7 @@ public:
                 builder.create<scf::YieldOp>(nestedLoc, tmpVec);
               });
           builder.create<MaskedStoreOp>(loc, newC,
-                                        ValueRange{ivs[0], ivs[2], ivs[1], idx},
+                                        ValueRange{c0, ivs[1], ivs[0], idx},
                                         tailMask, iterVec.getResult(0));
         });
     Value output = rewriter.create<bufferization::ToTensorOp>(

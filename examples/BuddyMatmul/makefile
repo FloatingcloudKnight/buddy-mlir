@@ -123,38 +123,49 @@ linalg-matmul-transpose-b-f32-run:
 	${MLIR_CPU_RUNNER} ${OPT_FLAG} -e main -entry-point-result=void \
 		-shared-libs=${MLIR_RUNNER_UTILS} -shared-libs=${MLIR_C_RUNNER_UTILS}
 
-tosa-transpose-test-lower:
+tosa-matmul-transpose2-run:
 	@${BUDDY_OPT} ./tosa-matmultranspose2.mlir \
-			-transpose-fusion-vectorization \
-			-o log.mlir
-
-tosa-matmul-transpose2-lower:
-	@${BUDDY_OPT} ./tosa-matmultranspose2.mlir \
-			-pass-pipeline "builtin.module(func.func(tosa-to-linalg-named, tosa-to-linalg, tosa-to-tensor, tosa-to-arith))" | \
+			-pass-pipeline "builtin.module(transpose-fusion-vectorization, func.func(tosa-to-linalg-named, tosa-to-linalg, tosa-to-tensor, tosa-to-arith))" | \
     ${BUDDY_OPT} \
 		-eliminate-empty-tensors \
+		-empty-tensor-to-alloc-tensor \
+		-one-shot-bufferize \
 		-convert-tensor-to-linalg \
-		-linalg-bufferize \
-		-o log.mlir
+		-func-bufferize \
+		-arith-bufferize \
+		-convert-linalg-to-affine-loops \
+		-lower-affine \
+		-func-bufferize \
+		-arith-bufferize \
+		-tensor-bufferize \
+		-buffer-deallocation \
+		-finalizing-bufferize \
+		-convert-vector-to-scf \
+		-expand-strided-metadata \
+		-convert-vector-to-llvm \
+		-convert-arith-to-llvm \
+		-finalize-memref-to-llvm \
+		-convert-scf-to-cf \
+		-convert-arith-to-llvm \
+		-convert-func-to-llvm \
+		-reconcile-unrealized-casts | \
+	${MLIR_CPU_RUNNER} ${OPT_FLAG} -e main -entry-point-result=void \
+		-shared-libs=${MLIR_RUNNER_UTILS} -shared-libs=${MLIR_C_RUNNER_UTILS}
 
 tosa-matmul-transpose2-vec-run:
 	@${BUDDY_OPT} ./tosa-matmultranspose2-vec.mlir\
 		-convert-linalg-to-affine-loops \
-		-affine-parallelize \
 		-lower-affine \
-		-convert-scf-to-openmp \
 		-convert-vector-to-scf \
-		-expand-strided-metadata \
 		-convert-vector-to-llvm \
-		-memref-expand \
-		-arith-expand \
-		-convert-arith-to-llvm \
 		-finalize-memref-to-llvm  \
 		-convert-scf-to-cf \
 		-convert-openmp-to-llvm \
 		-convert-math-to-llvm \
 		-convert-math-to-libm  \
+		-convert-arith-to-llvm \
 		-convert-func-to-llvm \
+		-finalize-memref-to-llvm  \
 		-reconcile-unrealized-casts | \
 	${MLIR_CPU_RUNNER} ${OPT_FLAG} -e main -entry-point-result=void \
 		-shared-libs=${MLIR_RUNNER_UTILS} -shared-libs=${MLIR_C_RUNNER_UTILS}
