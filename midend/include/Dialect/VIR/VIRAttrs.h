@@ -1,4 +1,4 @@
-//===- ScheOps.h - Sche Dialect Ops -------------------------------*- C++ -*-===//
+//===-- VIRAttrs.h - Dynamic Vector IR Attribute Declarations ---*- C++ -*-===//
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,24 +14,17 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This is the header file for operations in sche dialect. 
+// This file declares the attribute system for the Dynamic Vector IR (VIR)
+// dialect, including scaling factor attributes.
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef SCHE_SCHEOPS_H
-#define SCHE_SCHEOPS_H
+#ifndef VIR_VIRATTRS_H
+#define VIR_VIRATTRS_H
 
-#include "mlir/IR/BuiltinTypes.h"
-#include "mlir/IR/Dialect.h"
-#include "mlir/IR/OpDefinition.h"
-#include "mlir/Bytecode/BytecodeOpInterface.h"
-#include "mlir/Interfaces/InferTypeOpInterface.h"
-#include "mlir/Interfaces/SideEffectInterfaces.h"
-#include "mlir/Interfaces/ControlFlowInterfaces.h"
-#include "Dialect/Sche/ScheDialect.h"
-#include "mlir/IR/OpImplementation.h"
+#include "mlir/IR/Attributes.h"
 
-#define GET_OP_CLASSES
-#include "Sche/ScheOps.h.inc"
+#define GET_ATTRDEF_CLASSES
+#include "VIR/VIRAttrs.h.inc"
 
-#endif // SCHE_SCHEOPS_H
+#endif // VIR_VIRATTRS_H

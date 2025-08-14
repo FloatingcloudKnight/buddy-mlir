@@ -1,4 +1,4 @@
-//===- ScheDialect.h - Sche Dialect Definition --------------------*- C++ -*-===//
+//===-- VIRTypes.h - Dynamic Vector IR Type Declarations --------*- C++ -*-===//
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,31 +13,23 @@
 // limitations under the License.
 //
 //===----------------------------------------------------------------------===//
-// 
-// This is the header file for the sche dialect.
+//
+// This file declares the type system for the Dynamic Vector IR (VIR) dialect,
+// including dynamic vector types and their associated interfaces.
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef SCHE_SCHEDIALECT_H
-#define SCHE_SCHEDIALECT_H
+#ifndef VIR_VIRTYPES_H
+#define VIR_VIRTYPES_H
 
-namespace buddy {
-namespace sche {
-class AsyncTokenType
-    : public ::mlir::Type::TypeBase<AsyncTokenType, ::mlir::Type, ::mlir::TypeStorage> {
-public:
-  // Used for generic hooks in TypeBase.
-  using Base::Base;
-};
+#include "mlir/IR/BuiltinAttributeInterfaces.h"
+#include "mlir/IR/BuiltinTypeInterfaces.h"
+#include "mlir/IR/BuiltinTypes.h"
+#include "mlir/Support/ADTExtras.h"
 
-void addAsyncDependency(::mlir::Operation *op, ::mlir::Value token);
-}
-}
+#include "VIR/VIRAttrs.h"
 
-#include "mlir/IR/Dialect.h"
+#define GET_TYPEDEF_CLASSES
+#include "VIR/VIRTypes.h.inc"
 
-#include "Sche/ScheOpsDialect.h.inc"
-
-#include "Sche/ScheOpInterfaces.h.inc"
-
-#endif // SCHE_SCHEDIALECT_H
+#endif // VIR_VIRTYPES_H

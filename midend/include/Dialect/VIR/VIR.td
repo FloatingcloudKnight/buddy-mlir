@@ -1,4 +1,4 @@
-//===------- ScheOps.td - Python bindings for Sche --*- tablegen -*-------===//
+//===-- VIR.td - Dynamic Vector IR Dialect Definition ------*- tablegen -*-===//
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,11 +13,19 @@
 // limitations under the License.
 //
 //===----------------------------------------------------------------------===//
+//
+// This file defines the top-level structure for the Dynamic Vector IR (VIR)
+// dialect, including all its components such as operations, types, and
+// attributes.
+//
+//===----------------------------------------------------------------------===//
 
-#ifndef PYTHON_BINDINGS_SCHE_OPS
-#define PYTHON_BINDINGS_SCHE_OPS
+#ifndef VIR_TD
+#define VIR_TD
 
-// include "mlir/Bindings/Python/Attributes.td"
-include "Sche/ScheOps.td"
+include "VIR/VIRDialect.td"
+include "VIR/VIROps.td"
+include "VIR/VIRAttrs.td"
+include "VIR/VIRTypes.td"
 
-#endif
+#endif // VIR_TD
