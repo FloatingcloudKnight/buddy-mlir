@@ -1110,7 +1110,7 @@ next-mmtb-aot:
 	./next-mmtb.out || true
 
 next-mmtb-sgemm-unroll-vec-aot:
-	@${BUDDY_OPT} ./log.mlir \
+	@${BUDDY_OPT} ./next-mmtb-sgemm-unroll-vec.mlir \
 		-convert-linalg-to-affine-loops \
 		-affine-loop-fusion \
 		-affine-parallelize \
